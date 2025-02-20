@@ -18,16 +18,10 @@ Build the project:
 shards build --release
 ```
 
-Or build manually:
-
-```sh
-crystal build src/speedtest-cli.cr --release
-```
-
 ## Usage
 
-```
-./speedtest-cli
+```sh
+./bin/speedtest-cli
 ```
 
 ## Contributing

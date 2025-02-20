@@ -202,11 +202,11 @@ module Speedtest::Cli
       parser.on("--version", "Show the version number and exit") do
         puts "Speedtest CLI #{VERSION}"
         puts "Crystal #{Crystal::VERSION} (LLVM #{Crystal::LLVM_VERSION})"
-        exit(0)
+        exit
       end
       parser.on("-h", "--help", "Show this help message and exit") do
         puts parser
-        exit(0)
+        exit
       end
     end
 
