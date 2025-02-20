@@ -1,5 +1,5 @@
+require "http/client"
 require "xml"
-require "crest"
 
 class SpeedtestConfig
   getter upload_maxchunkcount : Int32
@@ -36,9 +36,14 @@ module Speedtest::Cli
 
   def self.fetch_servers
     url = "https://www.speedtest.net/speedtest-servers.php"
-    response = Crest.get(url)
 
-    if response.success?
+    response = HTTP::Client.get(url)
+
+    if response.status.redirection?
+      response = HTTP::Client.get(response.headers["Location"])
+    end
+
+    if response.status.success?
       parse_servers(response.body)
     else
       raise "Failed to fetch Speedtest servers: #{response.status_code}"
@@ -67,7 +72,7 @@ module Speedtest::Cli
     test_sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
     download_count = config.download_threadsperurl  # Use actual thread count
 
-    puts "Testing download speed:"
+    print "Testing download speed: "
 
     total_bytes = Atomic(Int64).new(0)
     start_time = Time.monotonic
@@ -110,7 +115,7 @@ module Speedtest::Cli
     upload_count = (upload_max / upload_sizes.size).ceil.to_i
     upload_url = "#{base_url}/upload.php"
 
-    puts "Testing upload speed:"
+    print "Testing upload speed: "
 
     total_bytes = Atomic(Int64).new(0)
     start_time = Time.monotonic
