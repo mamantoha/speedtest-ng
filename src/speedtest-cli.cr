@@ -6,12 +6,17 @@ module Speedtest::Cli
   VERSION = "0.1.0"
 
   class SpeedtestConfig
+    getter client_ip : String
+    getter client_isp : String
     getter upload_maxchunkcount : Int32
     getter upload_threads : Int32
     getter download_threadsperurl : Int32
 
     def initialize(xml_content : String)
       xml = XML.parse(xml_content)
+
+      @client_ip = xml.xpath_nodes("//client/@ip").first.try(&.content).to_s
+      @client_isp = xml.xpath_nodes("//client/@isp").first.try(&.content).to_s
       @upload_maxchunkcount = xml.xpath_nodes("//upload/@maxchunkcount").first.try(&.content).try(&.to_i) || 10
       @upload_threads = xml.xpath_nodes("//upload/@threads").first.try(&.content).try(&.to_i) || 2
       @download_threadsperurl = xml.xpath_nodes("//download/@threadsperurl").first.try(&.content).try(&.to_i) || 4
@@ -207,6 +212,8 @@ module Speedtest::Cli
 
     puts "Fetching Speedtest Configuration..."
     config = fetch_speedtest_config
+
+    puts "Testing from #{config.client_isp} (#{config.client_ip})..."
 
     servers = fetch_servers
     best_server = fetch_best_server(servers)
