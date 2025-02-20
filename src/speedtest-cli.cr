@@ -51,9 +51,9 @@ module Speedtest::Cli
       servers = [] of NamedTuple(name: String, country: String, url: String)
       xml.xpath_nodes("//servers/server").each do |server|
         servers << {
-          name: server["name"].to_s,
+          name:    server["name"].to_s,
           country: server["country"].to_s,
-          url: server["url"].to_s
+          url:     server["url"].to_s,
         }
       end
 
