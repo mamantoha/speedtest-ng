@@ -148,11 +148,9 @@ module Speedtest::Cli
   end
 
   def self.test_upload_speed(server_url : String, config : SpeedtestConfig)
-    base_url = server_url.sub(/\/upload\.php$/, "")
     upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032]
     upload_max = config.upload_maxchunkcount
     upload_count = (upload_max / upload_sizes.size).ceil.to_i
-    upload_url = "#{base_url}/upload.php"
 
     print "Testing upload speed: "
 
@@ -165,7 +163,7 @@ module Speedtest::Cli
         spawn do
           begin
             random_data = Random::Secure.random_bytes(size)
-            response = HTTP::Client.post(upload_url, body: random_data)
+            response = HTTP::Client.post(server_url, body: random_data)
             if response.success?
               total_bytes.add(size)
               print "."
