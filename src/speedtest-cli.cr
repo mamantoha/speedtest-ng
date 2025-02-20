@@ -5,6 +5,8 @@ require "option_parser"
 module Speedtest::Cli
   VERSION = "0.1.0"
 
+  alias ServerTuple = NamedTuple(name: String, country: String, url: String)
+
   class SpeedtestConfig
     getter client_ip : String
     getter client_isp : String
@@ -38,7 +40,7 @@ module Speedtest::Cli
     exit(1)
   end
 
-  def self.fetch_servers : Array(NamedTuple(name: String, country: String, url: String))
+  def self.fetch_servers : Array(ServerTuple)
     url = "https://www.speedtest.net/speedtest-servers.php"
     response = HTTP::Client.get(url)
 
@@ -62,7 +64,7 @@ module Speedtest::Cli
     end
   end
 
-  def self.fetch_best_server(servers)
+  def self.fetch_best_server(servers) : ServerTuple
     puts "Selecting best server based on ping..."
 
     best_server = nil
