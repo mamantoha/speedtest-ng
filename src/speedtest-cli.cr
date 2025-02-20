@@ -46,22 +46,20 @@ module Speedtest::Cli
       response = HTTP::Client.get(response.headers["Location"])
     end
 
-    if response.success?
-      xml = XML.parse(response.body)
-      servers = [] of NamedTuple(name: String, country: String, url: String)
-      xml.xpath_nodes("//servers/server").each do |server|
-        servers << {
-          name:    server["name"].to_s,
-          country: server["country"].to_s,
-          url:     server["url"].to_s,
-        }
-      end
-
-      return servers
+    unless response.success?
+      puts "Failed to fetch Speedtest servers: #{response.status_code}"
+      exit(1)
     end
 
-    puts "Failed to fetch Speedtest servers: #{response.status_code}"
-    exit(1)
+    xml = XML.parse(response.body)
+
+    xml.xpath_nodes("//servers/server").map do |server|
+      {
+        name:    server["name"].to_s,
+        country: server["country"].to_s,
+        url:     server["url"].to_s,
+      }
+    end
   end
 
   def self.fetch_best_server(servers)
