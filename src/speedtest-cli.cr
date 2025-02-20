@@ -77,10 +77,54 @@ module Speedtest::Cli
     puts "Download Speed: #{speed_mbps.round(2)} Mbps"
   end
 
+  def self.test_upload_speed(server_url : String)
+    # Ensure the URL is cleaned (remove upload.php if present)
+    base_url = server_url.sub(/\/upload\.php$/, "")
+
+    upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032]
+    upload_count = 1
+    upload_url = "#{base_url}/upload.php"
+
+    puts "Testing upload speed to: #{upload_url}"
+    total_bytes = Atomic(Int64).new(0)
+    start_time = Time.monotonic
+    channel = Channel(Nil).new(upload_sizes.size * upload_count)
+
+    upload_sizes.each do |size|
+      upload_count.times do
+        spawn do
+          begin
+            random_data = Random::Secure.random_bytes(size)  # Generate random payload
+            response = HTTP::Client.post(upload_url, body: random_data)
+
+            if response.success?
+              total_bytes.add(size)
+            end
+          rescue ex
+            puts "Error uploading #{size} bytes: #{ex.message}"
+          ensure
+            channel.send(nil)
+          end
+        end
+      end
+    end
+
+    # Wait for all fibers to complete
+    (upload_sizes.size * upload_count).times { channel.receive }
+
+    end_time = Time.monotonic
+    time_taken = (end_time - start_time).total_seconds
+
+    speed_mbps = (total_bytes.get * 8) / (time_taken * 1_000_000.0)
+
+    puts "Upload Speed: #{speed_mbps.round(2)} Mbps"
+  end
+
   def self.run
     server = fetch_servers
     puts "Using Server: #{server[:name]}, #{server[:country]}"
     test_download_speed(server[:url])
+    test_upload_speed(server[:url])
   end
 end
 
