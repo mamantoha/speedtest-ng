@@ -1,6 +1,36 @@
 require "xml"
 require "crest"
 
+class SpeedtestConfig
+  getter upload_maxchunkcount : Int32
+  getter upload_threads : Int32
+  getter download_threadsperurl : Int32
+
+  def initialize(xml_content : String)
+    xml = XML.parse(xml_content)
+    @upload_maxchunkcount = xml.xpath_nodes("//upload/@maxchunkcount").first.try(&.content).try(&.to_i) || 10
+    @upload_threads = xml.xpath_nodes("//upload/@threads").first.try(&.content).try(&.to_i) || 2
+    @download_threadsperurl = xml.xpath_nodes("//upload/@threadsperurl").first.try(&.content).try(&.to_i) || 4
+  end
+end
+
+def fetch_speedtest_config
+  url = "https://www.speedtest.net/speedtest-config.php"
+
+  begin
+    response = HTTP::Client.get(url)
+    if response.success?
+      return SpeedtestConfig.new(response.body)
+    else
+      puts "Failed to fetch config, using defaults."
+      return SpeedtestConfig.new("")
+    end
+  rescue ex
+    puts "Error fetching speedtest config: #{ex.message}"
+    return SpeedtestConfig.new("")
+  end
+end
+
 module Speedtest::Cli
   VERSION = "0.1.0"
 
@@ -32,13 +62,12 @@ module Speedtest::Cli
     end
   end
 
-  # Performs a parallel download test
-  def self.test_download_speed(server_url : String)
-    # Ensure the URL is cleaned (remove upload.php if present)
+  def self.test_download_speed(server_url : String, config : SpeedtestConfig)
     base_url = server_url.sub(/\/upload\.php$/, "")
 
+    # Match Python's file sizes
     test_sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
-    download_count = 1
+    download_count = config.download_threadsperurl
 
     puts "Testing download speed from: #{base_url}"
     total_bytes = Atomic(Int64).new(0)
@@ -53,36 +82,32 @@ module Speedtest::Cli
           begin
             response = HTTP::Client.get(url)
             if response.success?
-              bytes_received = response.body.bytesize
-              total_bytes.add(bytes_received)
+              total_bytes.add(response.body.bytesize)
             end
           rescue ex
             puts "Error downloading #{url}: #{ex.message}"
           ensure
-            channel.send(nil) # Signal that this fiber is done
+            channel.send(nil)
           end
         end
       end
     end
 
-    # Wait for all fibers to complete
     (test_sizes.size * download_count).times { channel.receive }
 
     end_time = Time.monotonic
     time_taken = (end_time - start_time).total_seconds
-
-    # Convert bytes to megabits per second (Mbps)
     speed_mbps = (total_bytes.get * 8) / (time_taken * 1_000_000.0)
 
     puts "Download Speed: #{speed_mbps.round(2)} Mbps"
   end
 
-  def self.test_upload_speed(server_url : String)
-    # Ensure the URL is cleaned (remove upload.php if present)
+
+  def self.test_upload_speed(server_url : String, config : SpeedtestConfig)
     base_url = server_url.sub(/\/upload\.php$/, "")
 
     upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032]
-    upload_count = 1
+    upload_count = (config.upload_maxchunkcount / upload_sizes.size).ceil.to_i
     upload_url = "#{base_url}/upload.php"
 
     puts "Testing upload speed to: #{upload_url}"
@@ -94,7 +119,7 @@ module Speedtest::Cli
       upload_count.times do
         spawn do
           begin
-            random_data = Random::Secure.random_bytes(size)  # Generate random payload
+            random_data = Random::Secure.random_bytes(size)
             response = HTTP::Client.post(upload_url, body: random_data)
 
             if response.success?
@@ -109,22 +134,24 @@ module Speedtest::Cli
       end
     end
 
-    # Wait for all fibers to complete
     (upload_sizes.size * upload_count).times { channel.receive }
 
     end_time = Time.monotonic
     time_taken = (end_time - start_time).total_seconds
-
     speed_mbps = (total_bytes.get * 8) / (time_taken * 1_000_000.0)
 
     puts "Upload Speed: #{speed_mbps.round(2)} Mbps"
   end
 
   def self.run
+    puts "Fetching Speedtest Configuration..."
+    config = fetch_speedtest_config
+
     server = fetch_servers
     puts "Using Server: #{server[:name]}, #{server[:country]}"
-    test_download_speed(server[:url])
-    test_upload_speed(server[:url])
+
+    test_download_speed(server[:url], config)
+    test_upload_speed(server[:url], config)
   end
 end
 
