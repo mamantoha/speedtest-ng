@@ -64,12 +64,11 @@ module Speedtest::Cli
 
   def self.test_download_speed(server_url : String, config : SpeedtestConfig)
     base_url = server_url.sub(/\/upload\.php$/, "")
-
-    # Match Python's file sizes
     test_sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
-    download_count = config.download_threadsperurl
+    download_count = config.download_threadsperurl  # Use actual thread count
 
-    puts "Testing download speed from: #{base_url}"
+    puts "Testing download speed:"
+
     total_bytes = Atomic(Int64).new(0)
     start_time = Time.monotonic
     channel = Channel(Nil).new(test_sizes.size * download_count)
@@ -78,14 +77,15 @@ module Speedtest::Cli
       download_count.times do
         spawn do
           url = "#{base_url}/random#{size}x#{size}.jpg"
-
           begin
             response = HTTP::Client.get(url)
             if response.success?
               total_bytes.add(response.body.bytesize)
+              print "."
+              STDOUT.flush
             end
           rescue ex
-            puts "Error downloading #{url}: #{ex.message}"
+            print "E"
           ensure
             channel.send(nil)
           end
@@ -95,22 +95,23 @@ module Speedtest::Cli
 
     (test_sizes.size * download_count).times { channel.receive }
 
+    puts "\n"
     end_time = Time.monotonic
     time_taken = (end_time - start_time).total_seconds
     speed_mbps = (total_bytes.get * 8) / (time_taken * 1_000_000.0)
 
-    puts "Download Speed: #{speed_mbps.round(2)} Mbps"
+    puts "Download: #{speed_mbps.round(2)} Mbit/s"
   end
-
 
   def self.test_upload_speed(server_url : String, config : SpeedtestConfig)
     base_url = server_url.sub(/\/upload\.php$/, "")
-
     upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032]
-    upload_count = (config.upload_maxchunkcount / upload_sizes.size).ceil.to_i
+    upload_max = config.upload_maxchunkcount
+    upload_count = (upload_max / upload_sizes.size).ceil.to_i
     upload_url = "#{base_url}/upload.php"
 
-    puts "Testing upload speed to: #{upload_url}"
+    puts "Testing upload speed:"
+
     total_bytes = Atomic(Int64).new(0)
     start_time = Time.monotonic
     channel = Channel(Nil).new(upload_sizes.size * upload_count)
@@ -121,12 +122,13 @@ module Speedtest::Cli
           begin
             random_data = Random::Secure.random_bytes(size)
             response = HTTP::Client.post(upload_url, body: random_data)
-
             if response.success?
               total_bytes.add(size)
+              print "."
+              STDOUT.flush
             end
           rescue ex
-            puts "Error uploading #{size} bytes: #{ex.message}"
+            print "E"
           ensure
             channel.send(nil)
           end
@@ -136,11 +138,12 @@ module Speedtest::Cli
 
     (upload_sizes.size * upload_count).times { channel.receive }
 
+    puts "\n"
     end_time = Time.monotonic
     time_taken = (end_time - start_time).total_seconds
     speed_mbps = (total_bytes.get * 8) / (time_taken * 1_000_000.0)
 
-    puts "Upload Speed: #{speed_mbps.round(2)} Mbps"
+    puts "Upload: #{speed_mbps.round(2)} Mbit/s"
   end
 
   def self.run
