@@ -1,5 +1,6 @@
 require "http/client"
 require "xml"
+require "option_parser"
 
 module Speedtest::Cli
   VERSION = "0.1.0"
@@ -185,6 +186,25 @@ module Speedtest::Cli
   end
 
   def self.run
+    no_download = false
+    no_upload = false
+
+    OptionParser.parse do |parser|
+      parser.banner = "Usage: speedtest-cli [options]"
+
+      parser.on("--no-download", "Do not perform download test") { no_download = true }
+      parser.on("--no-upload", "Do not perform upload test") { no_upload = true }
+      parser.on("--version", "Show the version number and exit") do
+        puts "Speedtest CLI #{VERSION}"
+        puts "Crystal #{Crystal::VERSION} (LLVM #{Crystal::LLVM_VERSION})"
+        exit(0)
+      end
+      parser.on("-h", "--help", "Show this help message and exit") do
+        puts parser
+        exit(0)
+      end
+    end
+
     puts "Fetching Speedtest Configuration..."
     config = fetch_speedtest_config
 
@@ -193,8 +213,8 @@ module Speedtest::Cli
 
     puts "Using Server: #{best_server[:name]}, #{best_server[:country]}"
 
-    test_download_speed(best_server[:url], config)
-    test_upload_speed(best_server[:url], config)
+    test_download_speed(best_server[:url], config) unless no_download
+    test_upload_speed(best_server[:url], config) unless no_upload
   end
 end
 
