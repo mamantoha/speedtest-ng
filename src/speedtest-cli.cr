@@ -1,76 +1,109 @@
 require "http/client"
 require "xml"
 
-class SpeedtestConfig
-  getter upload_maxchunkcount : Int32
-  getter upload_threads : Int32
-  getter download_threadsperurl : Int32
-
-  def initialize(xml_content : String)
-    xml = XML.parse(xml_content)
-    @upload_maxchunkcount = xml.xpath_nodes("//upload/@maxchunkcount").first.try(&.content).try(&.to_i) || 10
-    @upload_threads = xml.xpath_nodes("//upload/@threads").first.try(&.content).try(&.to_i) || 2
-    @download_threadsperurl = xml.xpath_nodes("//upload/@threadsperurl").first.try(&.content).try(&.to_i) || 4
-  end
-end
-
-def fetch_speedtest_config
-  url = "https://www.speedtest.net/speedtest-config.php"
-
-  begin
-    response = HTTP::Client.get(url)
-    if response.success?
-      return SpeedtestConfig.new(response.body)
-    else
-      puts "Failed to fetch config, using defaults."
-      return SpeedtestConfig.new("")
-    end
-  rescue ex
-    puts "Error fetching speedtest config: #{ex.message}"
-    return SpeedtestConfig.new("")
-  end
-end
-
 module Speedtest::Cli
   VERSION = "0.1.0"
 
-  def self.fetch_servers
-    url = "https://www.speedtest.net/speedtest-servers.php"
+  class SpeedtestConfig
+    getter upload_maxchunkcount : Int32
+    getter upload_threads : Int32
+    getter download_threadsperurl : Int32
 
+    def initialize(xml_content : String)
+      xml = XML.parse(xml_content)
+      @upload_maxchunkcount = xml.xpath_nodes("//upload/@maxchunkcount").first.try(&.content).try(&.to_i) || 10
+      @upload_threads = xml.xpath_nodes("//upload/@threads").first.try(&.content).try(&.to_i) || 2
+      @download_threadsperurl = xml.xpath_nodes("//download/@threadsperurl").first.try(&.content).try(&.to_i) || 4
+    end
+  end
+
+  def self.fetch_speedtest_config : SpeedtestConfig
+    url = "https://www.speedtest.net/speedtest-config.php"
+    response = HTTP::Client.get(url)
+
+    if response.success?
+      return SpeedtestConfig.new(response.body)
+    else
+      puts "Error fetching Speedtest configuration: #{response.status_code}"
+      exit(1)
+    end
+  rescue ex
+    puts "Error fetching config: #{ex.message}"
+    exit(1)
+  end
+
+  def self.fetch_servers : Array(NamedTuple(name: String, country: String, url: String))
+    url = "https://www.speedtest.net/speedtest-servers.php"
     response = HTTP::Client.get(url)
 
     if response.status.redirection?
       response = HTTP::Client.get(response.headers["Location"])
     end
 
-    if response.status.success?
-      parse_servers(response.body)
-    else
-      raise "Failed to fetch Speedtest servers: #{response.status_code}"
+    if response.success?
+      xml = XML.parse(response.body)
+      servers = [] of NamedTuple(name: String, country: String, url: String)
+      xml.xpath_nodes("//servers/server").each do |server|
+        servers << {
+          name: server["name"].to_s,
+          country: server["country"].to_s,
+          url: server["url"].to_s
+        }
+      end
+
+      return servers
     end
+
+    puts "Failed to fetch Speedtest servers: #{response.status_code}"
+    exit(1)
   end
 
-  # Parses XML and gets the first server
-  def self.parse_servers(xml_data : String)
-    xml = XML.parse(xml_data)
-    first_server = xml.xpath_nodes("//servers/server").first?
+  def self.fetch_best_server(servers)
+    puts "Selecting best server based on ping..."
 
-    if first_server
-      {
-        id: first_server["id"]?.to_s,
-        name: first_server["name"]?.to_s,
-        country: first_server["country"]?.to_s,
-        url: first_server["url"]?.to_s
-      }
-    else
-      raise "No servers found."
+    best_server = nil
+    best_latency = Float64::INFINITY
+
+    servers.each do |server|
+      latency_url = server[:url].sub(/\/upload\.php$/, "/latency.txt")
+      latencies = [] of Float64
+
+      3.times do
+        start_time = Time.monotonic
+        begin
+          response = HTTP::Client.get(latency_url)
+          if response.success?
+            elapsed_time = (Time.monotonic - start_time).total_milliseconds
+            latencies << elapsed_time
+          end
+        rescue
+          next
+        end
+      end
+
+      next if latencies.empty?
+
+      avg_latency = latencies.sort.first(3).sum / latencies.size
+
+      if avg_latency < best_latency
+        best_latency = avg_latency
+        best_server = server
+      end
     end
+
+    if best_server.nil?
+      puts "No available servers!"
+      exit(1)
+    end
+
+    puts "Hosted by #{best_server[:name]} (#{best_server[:country]}) [#{best_latency.round(2)} ms]"
+    best_server
   end
 
   def self.test_download_speed(server_url : String, config : SpeedtestConfig)
     base_url = server_url.sub(/\/upload\.php$/, "")
     test_sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
-    download_count = config.download_threadsperurl  # Use actual thread count
+    download_count = config.download_threadsperurl
 
     print "Testing download speed: "
 
@@ -89,7 +122,7 @@ module Speedtest::Cli
               print "."
               STDOUT.flush
             end
-          rescue ex
+          rescue
             print "E"
           ensure
             channel.send(nil)
@@ -132,7 +165,7 @@ module Speedtest::Cli
               print "."
               STDOUT.flush
             end
-          rescue ex
+          rescue
             print "E"
           ensure
             channel.send(nil)
@@ -155,11 +188,13 @@ module Speedtest::Cli
     puts "Fetching Speedtest Configuration..."
     config = fetch_speedtest_config
 
-    server = fetch_servers
-    puts "Using Server: #{server[:name]}, #{server[:country]}"
+    servers = fetch_servers
+    best_server = fetch_best_server(servers)
 
-    test_download_speed(server[:url], config)
-    test_upload_speed(server[:url], config)
+    puts "Using Server: #{best_server[:name]}, #{best_server[:country]}"
+
+    test_download_speed(best_server[:url], config)
+    test_upload_speed(best_server[:url], config)
   end
 end
 
