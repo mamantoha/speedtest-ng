@@ -15,25 +15,73 @@ module Speedtest::Cli
     end
   end
 
+  # Parses XML and gets the first server
   def self.parse_servers(xml_data : String)
     xml = XML.parse(xml_data)
     first_server = xml.xpath_nodes("//servers/server").first?
 
     if first_server
-      id = first_server["id"]?.to_s
-      name = first_server["name"]?.to_s
-      country = first_server["country"]?.to_s
-      url = first_server["url"]?.to_s
-
-      puts "First server found:"
-      puts "ID: #{id}"
-      puts "Name: #{name}"
-      puts "Country: #{country}"
-      puts "URL: #{url}"
+      {
+        id: first_server["id"]?.to_s,
+        name: first_server["name"]?.to_s,
+        country: first_server["country"]?.to_s,
+        url: first_server["url"]?.to_s
+      }
     else
-      puts "No servers found."
+      raise "No servers found."
     end
+  end
+
+  # Performs a parallel download test
+  def self.test_download_speed(server_url : String)
+    # Ensure the URL is cleaned (remove upload.php if present)
+    base_url = server_url.sub(/\/upload\.php$/, "")
+
+    test_sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
+    download_count = 1
+
+    puts "Testing download speed from: #{base_url}"
+    total_bytes = Atomic(Int64).new(0)
+    start_time = Time.monotonic
+    channel = Channel(Nil).new(test_sizes.size * download_count)
+
+    test_sizes.each do |size|
+      download_count.times do
+        spawn do
+          url = "#{base_url}/random#{size}x#{size}.jpg"
+
+          begin
+            response = HTTP::Client.get(url)
+            if response.success?
+              bytes_received = response.body.bytesize
+              total_bytes.add(bytes_received)
+            end
+          rescue ex
+            puts "Error downloading #{url}: #{ex.message}"
+          ensure
+            channel.send(nil) # Signal that this fiber is done
+          end
+        end
+      end
+    end
+
+    # Wait for all fibers to complete
+    (test_sizes.size * download_count).times { channel.receive }
+
+    end_time = Time.monotonic
+    time_taken = (end_time - start_time).total_seconds
+
+    # Convert bytes to megabits per second (Mbps)
+    speed_mbps = (total_bytes.get * 8) / (time_taken * 1_000_000.0)
+
+    puts "Download Speed: #{speed_mbps.round(2)} Mbps"
+  end
+
+  def self.run
+    server = fetch_servers
+    puts "Using Server: #{server[:name]}, #{server[:country]}"
+    test_download_speed(server[:url])
   end
 end
 
-Speedtest::Cli.fetch_servers
+Speedtest::Cli.run
