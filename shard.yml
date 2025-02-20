@@ -1,0 +1,13 @@
+name: speedtest-cli
+version: 0.1.0
+
+authors:
+  - Anton Maminov <anton.linux@gmail.com>
+
+targets:
+  speedtest-cli:
+    main: src/speedtest-cli.cr
+
+crystal: '>= 1.15.1'
+
+license: MIT
