@@ -154,14 +154,13 @@ module Speedtest
           rescue
           ensure
             completed_requests.add(1)
+            update_progress_bar(start_time, total_bytes, completed_requests, total_requests)
             channel.send(nil)
           end
         end
       end
 
       download_count.times { channel.receive }
-
-      update_progress_bar(start_time, total_bytes, completed_requests, total_requests)
     end
 
     puts "\n"
@@ -206,14 +205,13 @@ module Speedtest
           rescue
           ensure
             completed_requests.add(1)
+            update_progress_bar(start_time, total_bytes, completed_requests, total_requests)
             channel.send(nil)
           end
         end
       end
 
       upload_count.times { channel.receive }
-
-      update_progress_bar(start_time, total_bytes, completed_requests, total_requests)
     end
 
     puts "\n"
