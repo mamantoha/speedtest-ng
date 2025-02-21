@@ -17,11 +17,7 @@ module Speedtest::Cli
     def initialize(xml_content : String)
       xml = XML.parse(xml_content)
 
-      @client_ip = xml.xpath_nodes("//client/@ip").first.try(&.content).to_s
-      @client_isp = xml.xpath_nodes("//client/@isp").first.try(&.content).to_s
-      @upload_maxchunkcount = xml.xpath_nodes("//upload/@maxchunkcount").first.try(&.content).try(&.to_i) || 10
-      @upload_threads = xml.xpath_nodes("//upload/@threads").first.try(&.content).try(&.to_i) || 2
-      @download_threadsperurl = xml.xpath_nodes("//download/@threadsperurl").first.try(&.content).try(&.to_i) || 4
+      @client_ip = xml.xpath_string("string(//client/@ip)")
       @client_isp = xml.xpath_string("string(//client/@isp)")
       @upload_maxchunkcount = xml.xpath_string("string(//upload/@maxchunkcount)").to_i || 10
       @upload_threads = xml.xpath_string("string(//upload/@threads)").to_i || 2
