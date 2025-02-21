@@ -133,8 +133,8 @@ module Speedtest
   def test_download_speed(host : String, config : Config, single_mode : Bool)
     base_url = "http://#{host}/speedtest"
     download_sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000].reverse
-    download_count = single_mode ? 1 : config.download_threadsperurl
-    total_requests = download_sizes.size * download_count
+    threads = single_mode ? 1 : config.download_threadsperurl
+    total_requests = download_sizes.size * threads
 
     total_bytes = Atomic(Int64).new(0)
     completed_requests = Atomic(Int32).new(0)
@@ -145,9 +145,9 @@ module Speedtest
     download_sizes.each do |size|
       url = "#{base_url}/random#{size}x#{size}.jpg"
 
-      channel = Channel(Nil).new(download_count)
+      channel = Channel(Nil).new(threads)
 
-      download_count.times do
+      threads.times do
         spawn do
           begin
             response = HTTP::Client.get(url)
@@ -164,7 +164,7 @@ module Speedtest
         end
       end
 
-      download_count.times { channel.receive }
+      threads.times { channel.receive }
     end
 
     puts "\n"
@@ -179,8 +179,8 @@ module Speedtest
     url = "http://#{host}/speedtest/upload.php"
 
     upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032].reverse
-    upload_count = single_mode ? 1 : config.upload_threads
-    total_requests = upload_sizes.size * upload_count
+    threads = single_mode ? 1 : config.upload_threads
+    total_requests = upload_sizes.size * threads
 
     upload_data = upload_sizes.reduce({} of Int32 => Bytes) do |hash, size|
       hash[size] = Random::Secure.random_bytes(size)
@@ -196,9 +196,9 @@ module Speedtest
     upload_sizes.each do |size|
       data = upload_data[size]
 
-      channel = Channel(Nil).new(upload_count)
+      channel = Channel(Nil).new(threads)
 
-      upload_count.times do
+      threads.times do
         spawn do
           begin
             response = HTTP::Client.post(url, body: data)
@@ -215,7 +215,7 @@ module Speedtest
         end
       end
 
-      upload_count.times { channel.receive }
+      threads.times { channel.receive }
     end
 
     puts "\n"
