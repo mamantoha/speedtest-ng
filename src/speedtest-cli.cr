@@ -247,6 +247,20 @@ module Speedtest
     end
   end
 
+  def list_servers
+    servers = fetch_servers
+
+    servers.each do |server|
+      flag = country_flag(server[:cc])
+
+      printf(
+        "  %-8s %s\n",
+        server[:id],
+        "#{server[:sponsor]} (#{server[:name]}, #{flag} #{server[:country]})"
+      )
+    end
+  end
+
   module CLI
     NAME    = "speedtest-ng"
     VERSION = "0.1.0"
@@ -255,6 +269,7 @@ module Speedtest
       no_download = false
       no_upload = false
       single_mode = false
+      list_servers_only = false
 
       OptionParser.parse do |parser|
         parser.banner = "Usage: #{NAME} [options]"
@@ -262,6 +277,7 @@ module Speedtest
         parser.on("--no-download", "Do not perform download test") { no_download = true }
         parser.on("--no-upload", "Do not perform upload test") { no_upload = true }
         parser.on("--single", "Only use a single connection (simulates file transfer)") { single_mode = true }
+        parser.on("--list", "Display a list of speedtest.net servers") { list_servers_only = true }
         parser.on("--version", "Show the version number and exit") do
           puts "#{NAME} #{VERSION}"
           puts "Crystal #{Crystal::VERSION} [LLVM #{Crystal::LLVM_VERSION}]"
@@ -271,6 +287,12 @@ module Speedtest
           puts parser
           exit
         end
+      end
+
+      if list_servers_only
+        Speedtest.list_servers
+
+        exit(0)
       end
 
       puts "🚀 Fetching Speedtest Configuration..."
