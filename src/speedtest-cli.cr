@@ -127,10 +127,10 @@ module Speedtest
     best_server
   end
 
-  def test_download_speed(host : String, config : Config)
+  def test_download_speed(host : String, config : Config, single_mode : Bool)
     base_url = "http://#{host}/speedtest"
     download_sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000].reverse
-    download_count = config.download_threadsperurl
+    download_count = single_mode ? 1 : config.download_threadsperurl
     total_requests = download_sizes.size * download_count
 
     total_bytes = Atomic(Int64).new(0)
@@ -172,11 +172,11 @@ module Speedtest
     puts "🔽 Download: #{avg_speed.round(2)} Mbit/s"
   end
 
-  def test_upload_speed(host : String, config : Config)
+  def test_upload_speed(host : String, config : Config, single_mode : Bool)
     url = "http://#{host}/speedtest/upload.php"
 
     upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032].reverse
-    upload_count = config.upload_threads
+    upload_count = single_mode ? 1 : config.upload_threads
     total_requests = upload_sizes.size * upload_count
 
     upload_data = upload_sizes.reduce({} of Int32 => Bytes) do |hash, size|
@@ -247,18 +247,20 @@ module Speedtest
   end
 
   module CLI
-    NAME = "speedtest-ng"
+    NAME    = "speedtest-ng"
     VERSION = "0.1.0"
 
     def self.run
       no_download = false
       no_upload = false
+      single_mode = false
 
       OptionParser.parse do |parser|
         parser.banner = "Usage: #{NAME} [options]"
 
         parser.on("--no-download", "Do not perform download test") { no_download = true }
         parser.on("--no-upload", "Do not perform upload test") { no_upload = true }
+        parser.on("--single", "Only use a single connection (simulates file transfer)") { single_mode = true }
         parser.on("--version", "Show the version number and exit") do
           puts "#{NAME} #{VERSION}"
           puts "Crystal #{Crystal::VERSION} [LLVM #{Crystal::LLVM_VERSION}]"
@@ -278,8 +280,8 @@ module Speedtest
       servers = Speedtest.fetch_servers
       best_server = Speedtest.fetch_best_server(servers)
 
-      Speedtest.test_download_speed(best_server[:host], config) unless no_download
-      Speedtest.test_upload_speed(best_server[:host], config) unless no_upload
+      Speedtest.test_download_speed(best_server[:host], config, single_mode) unless no_download
+      Speedtest.test_upload_speed(best_server[:host], config, single_mode) unless no_upload
     end
   end
 end
