@@ -20,7 +20,7 @@ module Speedtest
   class Config
     getter client : NamedTuple(ip: String, isp: String, country: String)
     getter upload_threads : Int32
-    getter download_thread : Int32
+    getter download_threads : Int32
 
     def initialize(xml_content : String)
       xml = XML.parse(xml_content)
@@ -32,7 +32,7 @@ module Speedtest
       }
 
       @upload_threads = xml.xpath_string("string(//upload/@threads)").to_i || 2
-      @download_thread = xml.xpath_string("string(//download/@threadsperurl)").to_i || 4
+      @download_threads = xml.xpath_string("string(//download/@threadsperurl)").to_i || 4
     end
   end
 
@@ -133,7 +133,7 @@ module Speedtest
   def test_download_speed(host : String, config : Config, single_mode : Bool)
     base_url = "http://#{host}/speedtest"
     download_sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000].reverse
-    threads = single_mode ? 1 : config.download_thread
+    threads = single_mode ? 1 : config.download_threads
     total_requests = download_sizes.size * threads
 
     total_bytes = Atomic(Int64).new(0)
