@@ -131,19 +131,20 @@ module Speedtest
   def test_download_speed(host : String, config : Config)
     base_url = "http://#{host}/speedtest"
 
-    test_sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
+    download_sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
     download_count = config.download_threadsperurl
 
     print "Testing download speed: "
 
     total_bytes = Atomic(Int64).new(0)
     start_time = Time.monotonic
-    channel = Channel(Nil).new(test_sizes.size * download_count)
+    channel = Channel(Nil).new(download_sizes.size * download_count)
 
-    test_sizes.each do |size|
+    download_sizes.each do |size|
+      url = "#{base_url}/random#{size}x#{size}.jpg"
+
       download_count.times do
         spawn do
-          url = "#{base_url}/random#{size}x#{size}.jpg"
           begin
             response = HTTP::Client.get(url)
             if response.success?
@@ -160,7 +161,7 @@ module Speedtest
       end
     end
 
-    (test_sizes.size * download_count).times { channel.receive }
+    (download_sizes.size * download_count).times { channel.receive }
 
     puts "\n"
     end_time = Time.monotonic
