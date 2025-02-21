@@ -20,6 +20,7 @@ module Speedtest
   class Config
     getter client_ip : String
     getter client_isp : String
+    getter client_country : String
     getter upload_threads : Int32
     getter download_threadsperurl : Int32
 
@@ -28,6 +29,8 @@ module Speedtest
 
       @client_ip = xml.xpath_string("string(//client/@ip)")
       @client_isp = xml.xpath_string("string(//client/@isp)")
+      @client_country = xml.xpath_string("string(//client/@country)")
+
       @upload_threads = xml.xpath_string("string(//upload/@threads)").to_i || 2
       @download_threadsperurl = xml.xpath_string("string(//download/@threadsperurl)").to_i || 4
     end
@@ -298,7 +301,7 @@ module Speedtest
       puts "🚀 Fetching Speedtest Configuration..."
       config = Speedtest.fetch_speedtest_config
 
-      puts "🌍 Testing from 🌐 #{config.client_isp} (#{config.client_ip})..."
+      puts "🌍 Testing from #{Speedtest.country_flag(config.client_country)} #{config.client_isp} (#{config.client_ip})..."
 
       servers = Speedtest.fetch_servers
       best_server = Speedtest.fetch_best_server(servers)
