@@ -130,15 +130,16 @@ module Speedtest
 
   def test_download_speed(host : String, config : Config)
     base_url = "http://#{host}/speedtest"
-
     download_sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
     download_count = config.download_threadsperurl
-
-    print "Testing download speed: "
+    total_requests = download_sizes.size * download_count
 
     total_bytes = Atomic(Int64).new(0)
+    completed_requests = Atomic(Int32).new(0)
     start_time = Time.monotonic
-    channel = Channel(Nil).new(download_sizes.size * download_count)
+    channel = Channel(Nil).new(total_requests)
+
+    puts "Testing download speed..."
 
     download_sizes.each do |size|
       url = "#{base_url}/random#{size}x#{size}.jpg"
@@ -149,26 +150,29 @@ module Speedtest
             response = HTTP::Client.get(url)
             if response.success?
               total_bytes.add(response.body.bytesize)
-              print "."
-              STDOUT.flush
             end
           rescue
-            print "E"
           ensure
+            completed_requests.add(1)
             channel.send(nil)
           end
         end
       end
     end
 
-    (download_sizes.size * download_count).times { channel.receive }
+    while completed_requests.get < total_requests
+      update_progress_bar(start_time, total_bytes, completed_requests, total_requests)
+    end
+
+    # Ensure all requests are completed
+    total_requests.times { channel.receive }
 
     puts "\n"
     end_time = Time.monotonic
-    time_taken = (end_time - start_time).total_seconds
-    speed_mbps = (total_bytes.get * 8) / (time_taken * 1_000_000.0)
+    total_time = (end_time - start_time).total_seconds
+    avg_speed = (total_bytes.get * 8) / (total_time * 1_000_000.0)
 
-    puts "Download: #{speed_mbps.round(2)} Mbit/s"
+    puts "Download: #{avg_speed.round(2)} Mbit/s"
   end
 
   def test_upload_speed(host : String, config : Config)
@@ -218,6 +222,20 @@ module Speedtest
     speed_mbps = (total_bytes.get * 8) / (time_taken * 1_000_000.0)
 
     puts "Upload: #{speed_mbps.round(2)} Mbit/s"
+  end
+
+  def update_progress_bar(start_time, total_bytes, completed_requests, total_requests)
+    sleep 500.milliseconds
+
+    elapsed_time = (Time.monotonic - start_time).total_seconds
+    speed_mbps = elapsed_time > 0 ? (total_bytes.get * 8) / (elapsed_time * 1_000_000.0) : 0.0
+
+    percentage = ((completed_requests.get.to_f / total_requests) * 100).clamp(0, 100).to_i
+    bar_length = (percentage / 2).to_i
+    progress_bar = "=" * bar_length + ">"
+
+    printf("\r%3d%% [%-50s] %7.2f Mbit/s", percentage, progress_bar.ljust(50), speed_mbps)
+    STDOUT.flush
   end
 
   module CLI
