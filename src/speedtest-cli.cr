@@ -141,29 +141,27 @@ module Speedtest
     download_sizes.each do |size|
       url = "#{base_url}/random#{size}x#{size}.jpg"
 
-      (download_count // download_count).times do
-        channel = Channel(Nil).new(download_count)
+      channel = Channel(Nil).new(download_count)
 
-        download_count.times do
-          spawn do
-            begin
-              response = HTTP::Client.get(url)
+      download_count.times do
+        spawn do
+          begin
+            response = HTTP::Client.get(url)
 
-              if response.success?
-                total_bytes.add(response.body.bytesize)
-              end
-            rescue
-            ensure
-              completed_requests.add(1)
-              channel.send(nil)
+            if response.success?
+              total_bytes.add(response.body.bytesize)
             end
+          rescue
+          ensure
+            completed_requests.add(1)
+            channel.send(nil)
           end
         end
-
-        download_count.times { channel.receive }
-
-        update_progress_bar(start_time, total_bytes, completed_requests, total_requests)
       end
+
+      download_count.times { channel.receive }
+
+      update_progress_bar(start_time, total_bytes, completed_requests, total_requests)
     end
 
     puts "\n"
