@@ -224,6 +224,7 @@ module Speedtest
   end
 
   def update_progress_bar(start_time : Time::Span, total_bytes : Int64, completed_requests : Int32, total_requests : Int32)
+    sleep 100.milliseconds
     elapsed_time = (Time.monotonic - start_time).total_seconds
     speed_mbps = elapsed_time > 0 ? (total_bytes * 8) / (elapsed_time * 1_000_000.0) : 0.0
 
