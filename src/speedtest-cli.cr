@@ -121,7 +121,8 @@ module Speedtest
       exit(1)
     end
 
-    puts "Hosted by #{best_server[:sponsor]} (#{best_server[:name]}, #{best_server[:country]}): #{best_latency.round(2)} ms"
+    flag = country_flag(best_server[:cc])
+    puts "Hosted by #{best_server[:sponsor]} (#{best_server[:name]}, #{flag} #{best_server[:country]}): #{best_latency.round(2)} ms"
 
     best_server
   end
@@ -232,6 +233,17 @@ module Speedtest
 
     printf("\r%3d%% [%-50s] %7.2f Mbit/s", percentage, progress_bar.ljust(50), speed_mbps)
     STDOUT.flush
+  end
+
+  def country_flag(code : String) : String
+    offset = 127397
+    country_code_re = /^[A-Z]{2}$/
+
+    if country_code_re.match(code)
+      code.codepoints.map(&.+ offset).join(&.chr)
+    else
+      ""
+    end
   end
 
   module CLI
