@@ -17,7 +17,7 @@ module Speedtest::Cli
     host: String,
   )
 
-  class SpeedtestConfig
+  class Config
     getter client_ip : String
     getter client_isp : String
     getter upload_maxchunkcount : Int32
@@ -35,13 +35,13 @@ module Speedtest::Cli
     end
   end
 
-  def self.fetch_speedtest_config : SpeedtestConfig
+  def self.fetch_speedtest_config : Config
     url = "https://www.speedtest.net/speedtest-config.php"
 
     response = HTTP::Client.get(url)
 
     if response.success?
-      return SpeedtestConfig.new(response.body)
+      return Config.new(response.body)
     else
       puts "Error fetching Speedtest configuration: #{response.status_code}"
       exit(1)
@@ -128,7 +128,7 @@ module Speedtest::Cli
     best_server
   end
 
-  def self.test_download_speed(host : String, config : SpeedtestConfig)
+  def self.test_download_speed(host : String, config : Config)
     base_url = "http://#{host}/speedtest"
 
     test_sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
@@ -170,7 +170,7 @@ module Speedtest::Cli
     puts "Download: #{speed_mbps.round(2)} Mbit/s"
   end
 
-  def self.test_upload_speed(host : String, config : SpeedtestConfig)
+  def self.test_upload_speed(host : String, config : Config)
     upload_url = "http://#{host}/speedtest/upload.php"
 
     upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032]
