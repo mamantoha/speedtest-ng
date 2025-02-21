@@ -154,7 +154,7 @@ module Speedtest
           rescue
           ensure
             completed_requests.add(1)
-            update_progress_bar(start_time, total_bytes, completed_requests, total_requests)
+            update_progress_bar(start_time, total_bytes.get, completed_requests.get, total_requests)
             channel.send(nil)
           end
         end
@@ -205,7 +205,7 @@ module Speedtest
           rescue
           ensure
             completed_requests.add(1)
-            update_progress_bar(start_time, total_bytes, completed_requests, total_requests)
+            update_progress_bar(start_time, total_bytes.get, completed_requests.get, total_requests)
             channel.send(nil)
           end
         end
@@ -222,11 +222,11 @@ module Speedtest
     puts "Upload: #{avg_speed.round(2)} Mbit/s"
   end
 
-  def update_progress_bar(start_time, total_bytes, completed_requests, total_requests)
+  def update_progress_bar(start_time : Time::Span, total_bytes : Int64, completed_requests : Int32, total_requests : Int32)
     elapsed_time = (Time.monotonic - start_time).total_seconds
-    speed_mbps = elapsed_time > 0 ? (total_bytes.get * 8) / (elapsed_time * 1_000_000.0) : 0.0
+    speed_mbps = elapsed_time > 0 ? (total_bytes * 8) / (elapsed_time * 1_000_000.0) : 0.0
 
-    percentage = ((completed_requests.get.to_f / total_requests) * 100).clamp(0, 100).to_i
+    percentage = ((completed_requests / total_requests) * 100).clamp(0, 100).to_i
     bar_length = (percentage / 2).to_i
     progress_bar = "=" * bar_length + ">"
 
