@@ -2,8 +2,8 @@ require "http/client"
 require "xml"
 require "option_parser"
 
-module Speedtest::Cli
-  VERSION = "0.1.0"
+module Speedtest
+  extend self
 
   alias Server = NamedTuple(
     url: String,
@@ -35,7 +35,7 @@ module Speedtest::Cli
     end
   end
 
-  def self.fetch_speedtest_config : Config
+  def fetch_speedtest_config : Config
     url = "https://www.speedtest.net/speedtest-config.php"
 
     response = HTTP::Client.get(url)
@@ -51,7 +51,7 @@ module Speedtest::Cli
     exit(1)
   end
 
-  def self.fetch_servers : Array(Server)
+  def fetch_servers : Array(Server)
     puts "Retrieving speedtest.net server list..."
 
     url = "https://www.speedtest.net/speedtest-servers.php"
@@ -84,7 +84,7 @@ module Speedtest::Cli
     end
   end
 
-  def self.fetch_best_server(servers) : Server
+  def fetch_best_server(servers) : Server
     puts "Selecting best server based on ping..."
 
     best_server = nil
@@ -128,7 +128,7 @@ module Speedtest::Cli
     best_server
   end
 
-  def self.test_download_speed(host : String, config : Config)
+  def test_download_speed(host : String, config : Config)
     base_url = "http://#{host}/speedtest"
 
     test_sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
@@ -170,7 +170,7 @@ module Speedtest::Cli
     puts "Download: #{speed_mbps.round(2)} Mbit/s"
   end
 
-  def self.test_upload_speed(host : String, config : Config)
+  def test_upload_speed(host : String, config : Config)
     upload_url = "http://#{host}/speedtest/upload.php"
 
     upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032]
@@ -213,37 +213,41 @@ module Speedtest::Cli
     puts "Upload: #{speed_mbps.round(2)} Mbit/s"
   end
 
-  def self.run
-    no_download = false
-    no_upload = false
+  module CLI
+    VERSION = "0.1.0"
 
-    OptionParser.parse do |parser|
-      parser.banner = "Usage: speedtest-cli [options]"
+    def self.run
+      no_download = false
+      no_upload = false
 
-      parser.on("--no-download", "Do not perform download test") { no_download = true }
-      parser.on("--no-upload", "Do not perform upload test") { no_upload = true }
-      parser.on("--version", "Show the version number and exit") do
-        puts "Speedtest CLI #{VERSION}"
-        puts "Crystal #{Crystal::VERSION} (LLVM #{Crystal::LLVM_VERSION})"
-        exit
+      OptionParser.parse do |parser|
+        parser.banner = "Usage: speedtest-cli [options]"
+
+        parser.on("--no-download", "Do not perform download test") { no_download = true }
+        parser.on("--no-upload", "Do not perform upload test") { no_upload = true }
+        parser.on("--version", "Show the version number and exit") do
+          puts "Speedtest CLI #{VERSION}"
+          puts "Crystal #{Crystal::VERSION} (LLVM #{Crystal::LLVM_VERSION})"
+          exit
+        end
+        parser.on("-h", "--help", "Show this help message and exit") do
+          puts parser
+          exit
+        end
       end
-      parser.on("-h", "--help", "Show this help message and exit") do
-        puts parser
-        exit
-      end
+
+      puts "Retrieving speedtest.net configuration..."
+      config = Speedtest.fetch_speedtest_config
+
+      puts "Testing from #{config.client_isp} (#{config.client_ip})..."
+
+      servers = Speedtest.fetch_servers
+      best_server = Speedtest.fetch_best_server(servers)
+
+      Speedtest.test_download_speed(best_server[:host], config) unless no_download
+      Speedtest.test_upload_speed(best_server[:host], config) unless no_upload
     end
-
-    puts "Retrieving speedtest.net configuration..."
-    config = fetch_speedtest_config
-
-    puts "Testing from #{config.client_isp} (#{config.client_ip})..."
-
-    servers = fetch_servers
-    best_server = fetch_best_server(servers)
-
-    test_download_speed(best_server[:host], config) unless no_download
-    test_upload_speed(best_server[:host], config) unless no_upload
   end
 end
 
-Speedtest::Cli.run
+Speedtest::CLI.run
