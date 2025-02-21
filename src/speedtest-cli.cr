@@ -181,17 +181,20 @@ module Speedtest
     upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032]
     upload_max = config.upload_maxchunkcount
     upload_count = (upload_max / upload_sizes.size).ceil.to_i
+    total_requests = upload_sizes.size * upload_count
 
     upload_data = upload_sizes.reduce({} of Int32 => Bytes) do |hash, size|
       hash[size] = Random::Secure.random_bytes(size)
       hash
     end
 
-    print "Testing upload speed: "
 
     total_bytes = Atomic(Int64).new(0)
+    completed_requests = Atomic(Int32).new(0)
     start_time = Time.monotonic
-    channel = Channel(Nil).new(upload_sizes.size * upload_count)
+    channel = Channel(Nil).new(total_requests)
+
+    puts "Testing upload speed..."
 
     upload_sizes.each do |size|
       data = upload_data[size]
@@ -202,26 +205,28 @@ module Speedtest
             response = HTTP::Client.post(url, body: data)
             if response.success?
               total_bytes.add(size)
-              print "."
-              STDOUT.flush
             end
           rescue
-            print "E"
           ensure
+            completed_requests.add(1)
             channel.send(nil)
           end
         end
       end
     end
 
-    (upload_sizes.size * upload_count).times { channel.receive }
+    while completed_requests.get < total_requests
+      update_progress_bar(start_time, total_bytes, completed_requests, total_requests)
+    end
+
+    total_requests.times { channel.receive }
 
     puts "\n"
     end_time = Time.monotonic
-    time_taken = (end_time - start_time).total_seconds
-    speed_mbps = (total_bytes.get * 8) / (time_taken * 1_000_000.0)
+    total_time = (end_time - start_time).total_seconds
+    avg_speed = (total_bytes.get * 8) / (total_time * 1_000_000.0)
 
-    puts "Upload: #{speed_mbps.round(2)} Mbit/s"
+    puts "Upload: #{avg_speed.round(2)} Mbit/s"
   end
 
   def update_progress_bar(start_time, total_bytes, completed_requests, total_requests)
