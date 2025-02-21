@@ -22,6 +22,10 @@ module Speedtest::Cli
       @upload_maxchunkcount = xml.xpath_nodes("//upload/@maxchunkcount").first.try(&.content).try(&.to_i) || 10
       @upload_threads = xml.xpath_nodes("//upload/@threads").first.try(&.content).try(&.to_i) || 2
       @download_threadsperurl = xml.xpath_nodes("//download/@threadsperurl").first.try(&.content).try(&.to_i) || 4
+      @client_isp = xml.xpath_string("string(//client/@isp)")
+      @upload_maxchunkcount = xml.xpath_string("string(//upload/@maxchunkcount)").to_i || 10
+      @upload_threads = xml.xpath_string("string(//upload/@threads)").to_i || 2
+      @download_threadsperurl = xml.xpath_string("string(//download/@threadsperurl)").to_i || 4
     end
   end
 
@@ -57,9 +61,9 @@ module Speedtest::Cli
 
     xml.xpath_nodes("//servers/server").map do |server|
       {
-        name:    server["name"].to_s,
-        country: server["country"].to_s,
-        url:     server["url"].to_s,
+        name:    server["name"],
+        country: server["country"],
+        url:     server["url"],
       }
     end
   end
