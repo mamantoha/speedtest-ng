@@ -18,18 +18,18 @@ module Speedtest
   )
 
   class Config
-    getter client_ip : String
-    getter client_isp : String
-    getter client_country : String
+    getter client : NamedTuple(ip: String, isp: String, country: String)
     getter upload_threads : Int32
     getter download_threadsperurl : Int32
 
     def initialize(xml_content : String)
       xml = XML.parse(xml_content)
 
-      @client_ip = xml.xpath_string("string(//client/@ip)")
-      @client_isp = xml.xpath_string("string(//client/@isp)")
-      @client_country = xml.xpath_string("string(//client/@country)")
+      @client = {
+        ip:      xml.xpath_string("string(//client/@ip)"),
+        isp:     xml.xpath_string("string(//client/@isp)"),
+        country: xml.xpath_string("string(//client/@country)"),
+      }
 
       @upload_threads = xml.xpath_string("string(//upload/@threads)").to_i || 2
       @download_threadsperurl = xml.xpath_string("string(//download/@threadsperurl)").to_i || 4
@@ -306,7 +306,7 @@ module Speedtest
       puts "🚀 Fetching Speedtest Configuration..."
       config = Speedtest.fetch_speedtest_config
 
-      puts "🌍 Testing from #{Speedtest.country_flag(config.client_country)} #{config.client_isp} (#{config.client_ip})..."
+      puts "🌍 Testing from #{Speedtest.country_flag(config.client[:country])} #{config.client[:isp]} (#{config.client[:ip]})..."
 
       servers = Speedtest.fetch_servers
       best_server = Speedtest.fetch_best_server(servers)
