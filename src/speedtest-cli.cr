@@ -130,42 +130,43 @@ module Speedtest
 
   def test_download_speed(host : String, config : Config)
     base_url = "http://#{host}/speedtest"
-    download_sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
+    download_sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000].reverse
     download_count = config.download_threadsperurl
     total_requests = download_sizes.size * download_count
 
     total_bytes = Atomic(Int64).new(0)
     completed_requests = Atomic(Int32).new(0)
     start_time = Time.monotonic
-    channel = Channel(Nil).new(total_requests)
 
     puts "Testing download speed..."
 
     download_sizes.each do |size|
       url = "#{base_url}/random#{size}x#{size}.jpg"
 
-      download_count.times do
-        spawn do
-          begin
-            response = HTTP::Client.get(url)
-            if response.success?
-              total_bytes.add(response.body.bytesize)
+      (download_count // download_count).times do
+        channel = Channel(Nil).new(download_count)
+
+        download_count.times do
+          spawn do
+            begin
+              response = HTTP::Client.get(url)
+
+              if response.success?
+                total_bytes.add(response.body.bytesize)
+              end
+            rescue
+            ensure
+              completed_requests.add(1)
+              channel.send(nil)
             end
-          rescue
-          ensure
-            completed_requests.add(1)
-            channel.send(nil)
           end
         end
+
+        download_count.times { channel.receive }
+
+        update_progress_bar(start_time, total_bytes, completed_requests, total_requests)
       end
     end
-
-    while completed_requests.get < total_requests
-      update_progress_bar(start_time, total_bytes, completed_requests, total_requests)
-    end
-
-    # Ensure all requests are completed
-    total_requests.times { channel.receive }
 
     puts "\n"
     end_time = Time.monotonic
