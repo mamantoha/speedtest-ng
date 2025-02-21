@@ -5,7 +5,7 @@ require "option_parser"
 module Speedtest::Cli
   VERSION = "0.1.0"
 
-  alias ServerTuple = NamedTuple(name: String, country: String, url: String)
+  alias Server = NamedTuple(name: String, country: String, url: String, host: String, sponsor: String)
 
   class SpeedtestConfig
     getter client_ip : String
@@ -27,6 +27,7 @@ module Speedtest::Cli
 
   def self.fetch_speedtest_config : SpeedtestConfig
     url = "https://www.speedtest.net/speedtest-config.php"
+
     response = HTTP::Client.get(url)
 
     if response.success?
@@ -40,8 +41,9 @@ module Speedtest::Cli
     exit(1)
   end
 
-  def self.fetch_servers : Array(ServerTuple)
+  def self.fetch_servers : Array(Server)
     url = "https://www.speedtest.net/speedtest-servers.php"
+
     response = HTTP::Client.get(url)
 
     if response.status.redirection?
@@ -60,18 +62,21 @@ module Speedtest::Cli
         name:    server["name"],
         country: server["country"],
         url:     server["url"],
+        host:    server["host"],
+        sponsor: server["sponsor"],
       }
     end
   end
 
-  def self.fetch_best_server(servers) : ServerTuple
+  def self.fetch_best_server(servers) : Server
     puts "Selecting best server based on ping..."
 
     best_server = nil
     best_latency = Float64::INFINITY
 
     servers.each do |server|
-      latency_url = server[:url].sub(/\/upload\.php$/, "/latency.txt")
+      latency_url = "http://#{server[:host]}/speedtest/latency.txt"
+
       latencies = [] of Float64
 
       3.times do
@@ -102,12 +107,14 @@ module Speedtest::Cli
       exit(1)
     end
 
-    puts "Hosted by #{best_server[:name]} (#{best_server[:country]}) [#{best_latency.round(2)} ms]"
+    puts "Hosted by #{best_server[:sponsor]} (#{best_server[:name]}, #{best_server[:country]}): #{best_latency.round(2)} ms"
+
     best_server
   end
 
-  def self.test_download_speed(server_url : String, config : SpeedtestConfig)
-    base_url = server_url.sub(/\/upload\.php$/, "")
+  def self.test_download_speed(host : String, config : SpeedtestConfig)
+    base_url = "http://#{host}/speedtest"
+
     test_sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
     download_count = config.download_threadsperurl
 
@@ -147,7 +154,9 @@ module Speedtest::Cli
     puts "Download: #{speed_mbps.round(2)} Mbit/s"
   end
 
-  def self.test_upload_speed(server_url : String, config : SpeedtestConfig)
+  def self.test_upload_speed(host : String, config : SpeedtestConfig)
+    upload_url = "http://#{host}/speedtest/upload.php"
+
     upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032]
     upload_max = config.upload_maxchunkcount
     upload_count = (upload_max / upload_sizes.size).ceil.to_i
@@ -163,7 +172,7 @@ module Speedtest::Cli
         spawn do
           begin
             random_data = Random::Secure.random_bytes(size)
-            response = HTTP::Client.post(server_url, body: random_data)
+            response = HTTP::Client.post(upload_url, body: random_data)
             if response.success?
               total_bytes.add(size)
               print "."
@@ -216,10 +225,8 @@ module Speedtest::Cli
     servers = fetch_servers
     best_server = fetch_best_server(servers)
 
-    puts "Using Server: #{best_server[:name]}, #{best_server[:country]}"
-
-    test_download_speed(best_server[:url], config) unless no_download
-    test_upload_speed(best_server[:url], config) unless no_upload
+    test_download_speed(best_server[:host], config) unless no_download
+    test_upload_speed(best_server[:host], config) unless no_upload
   end
 end
 
