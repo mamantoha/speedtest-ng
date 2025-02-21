@@ -20,7 +20,6 @@ module Speedtest
   class Config
     getter client_ip : String
     getter client_isp : String
-    getter upload_maxchunkcount : Int32
     getter upload_threads : Int32
     getter download_threadsperurl : Int32
 
@@ -29,7 +28,6 @@ module Speedtest
 
       @client_ip = xml.xpath_string("string(//client/@ip)")
       @client_isp = xml.xpath_string("string(//client/@isp)")
-      @upload_maxchunkcount = xml.xpath_string("string(//upload/@maxchunkcount)").to_i || 10
       @upload_threads = xml.xpath_string("string(//upload/@threads)").to_i || 2
       @download_threadsperurl = xml.xpath_string("string(//download/@threadsperurl)").to_i || 4
     end
@@ -180,15 +178,13 @@ module Speedtest
     url = "http://#{host}/speedtest/upload.php"
 
     upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032]
-    upload_max = config.upload_maxchunkcount
-    upload_count = (upload_max / upload_sizes.size).ceil.to_i
+    upload_count = config.upload_threads
     total_requests = upload_sizes.size * upload_count
 
     upload_data = upload_sizes.reduce({} of Int32 => Bytes) do |hash, size|
       hash[size] = Random::Secure.random_bytes(size)
       hash
     end
-
 
     total_bytes = Atomic(Int64).new(0)
     completed_requests = Atomic(Int32).new(0)
