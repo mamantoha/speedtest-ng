@@ -5,7 +5,17 @@ require "option_parser"
 module Speedtest::Cli
   VERSION = "0.1.0"
 
-  alias Server = NamedTuple(name: String, country: String, url: String, host: String, sponsor: String)
+  alias Server = NamedTuple(
+    url: String,
+    lat: String,
+    lon: String,
+    name: String,
+    country: String,
+    cc: String,
+    sponsor: String,
+    id: String,
+    host: String,
+  )
 
   class SpeedtestConfig
     getter client_ip : String
@@ -42,6 +52,8 @@ module Speedtest::Cli
   end
 
   def self.fetch_servers : Array(Server)
+    puts "Retrieving speedtest.net server list..."
+
     url = "https://www.speedtest.net/speedtest-servers.php"
 
     response = HTTP::Client.get(url)
@@ -59,11 +71,15 @@ module Speedtest::Cli
 
     xml.xpath_nodes("//servers/server").map do |server|
       {
+        url:     server["url"],
+        lat:     server["lat"],
+        lon:     server["lon"],
         name:    server["name"],
         country: server["country"],
-        url:     server["url"],
-        host:    server["host"],
+        cc:      server["cc"],
         sponsor: server["sponsor"],
+        id:      server["id"],
+        host:    server["host"],
       }
     end
   end
@@ -217,7 +233,7 @@ module Speedtest::Cli
       end
     end
 
-    puts "Fetching Speedtest Configuration..."
+    puts "Retrieving speedtest.net configuration..."
     config = fetch_speedtest_config
 
     puts "Testing from #{config.client_isp} (#{config.client_ip})..."
