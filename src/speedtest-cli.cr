@@ -247,6 +247,7 @@ module Speedtest
   end
 
   module CLI
+    NAME = "speedtest-ng"
     VERSION = "0.1.0"
 
     def self.run
@@ -254,13 +255,13 @@ module Speedtest
       no_upload = false
 
       OptionParser.parse do |parser|
-        parser.banner = "Usage: speedtest-cli [options]"
+        parser.banner = "Usage: #{NAME} [options]"
 
         parser.on("--no-download", "Do not perform download test") { no_download = true }
         parser.on("--no-upload", "Do not perform upload test") { no_upload = true }
         parser.on("--version", "Show the version number and exit") do
-          puts "Speedtest CLI #{VERSION}"
-          puts "Crystal #{Crystal::VERSION} (LLVM #{Crystal::LLVM_VERSION})"
+          puts "#{NAME} #{VERSION}"
+          puts "Crystal #{Crystal::VERSION} [LLVM #{Crystal::LLVM_VERSION}]"
           exit
         end
         parser.on("-h", "--help", "Show this help message and exit") do

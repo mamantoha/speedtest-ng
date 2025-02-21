@@ -1,11 +1,11 @@
-name: speedtest-cli
+name: speedtest-ng
 version: 0.1.0
 
 authors:
   - Anton Maminov <anton.maminov@gmail.com>
 
 targets:
-  speedtest-cli:
+  speedtest-ng:
     main: src/speedtest-cli.cr
 
 crystal: '>= 1.15.1'
