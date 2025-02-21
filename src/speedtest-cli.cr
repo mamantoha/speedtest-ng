@@ -50,7 +50,7 @@ module Speedtest
   end
 
   def fetch_servers : Array(Server)
-    puts "Retrieving speedtest.net server list..."
+    puts "📡 Retrieving speedtest.net server list..."
 
     url = "https://www.speedtest.net/speedtest-servers.php"
 
@@ -83,7 +83,7 @@ module Speedtest
   end
 
   def fetch_best_server(servers) : Server
-    puts "Selecting best server based on ping..."
+    puts "🎯 Selecting the best server based on ping..."
 
     best_server = nil
     best_latency = Float64::INFINITY
@@ -122,7 +122,7 @@ module Speedtest
     end
 
     flag = country_flag(best_server[:cc])
-    puts "Hosted by #{best_server[:sponsor]} (#{best_server[:name]}, #{flag} #{best_server[:country]}): #{best_latency.round(2)} ms"
+    puts "📍 Hosted by #{best_server[:sponsor]} (#{best_server[:name]}, #{flag} #{best_server[:country]}): #{best_latency.round(2)} ms"
 
     best_server
   end
@@ -137,7 +137,7 @@ module Speedtest
     completed_requests = Atomic(Int32).new(0)
     start_time = Time.monotonic
 
-    puts "Testing download speed..."
+    puts "⬇️ Testing download speed..."
 
     download_sizes.each do |size|
       url = "#{base_url}/random#{size}x#{size}.jpg"
@@ -169,7 +169,7 @@ module Speedtest
     total_time = (end_time - start_time).total_seconds
     avg_speed = (total_bytes.get * 8) / (total_time * 1_000_000.0)
 
-    puts "Download: #{avg_speed.round(2)} Mbit/s"
+    puts "🔽 Download: #{avg_speed.round(2)} Mbit/s"
   end
 
   def test_upload_speed(host : String, config : Config)
@@ -188,7 +188,7 @@ module Speedtest
     completed_requests = Atomic(Int32).new(0)
     start_time = Time.monotonic
 
-    puts "Testing upload speed..."
+    puts "⬆️ Testing upload speed..."
 
     upload_sizes.each do |size|
       data = upload_data[size]
@@ -220,7 +220,7 @@ module Speedtest
     total_time = (end_time - start_time).total_seconds
     avg_speed = (total_bytes.get * 8) / (total_time * 1_000_000.0)
 
-    puts "Upload: #{avg_speed.round(2)} Mbit/s"
+    puts "🔼 Upload: #{avg_speed.round(2)} Mbit/s"
   end
 
   def update_progress_bar(start_time : Time::Span, total_bytes : Int64, completed_requests : Int32, total_requests : Int32)
@@ -269,10 +269,10 @@ module Speedtest
         end
       end
 
-      puts "Retrieving speedtest.net configuration..."
+      puts "🚀 Fetching Speedtest Configuration..."
       config = Speedtest.fetch_speedtest_config
 
-      puts "Testing from #{config.client_isp} (#{config.client_ip})..."
+      puts "🌍 Testing from 🌐 #{config.client_isp} (#{config.client_ip})..."
 
       servers = Speedtest.fetch_servers
       best_server = Speedtest.fetch_best_server(servers)
