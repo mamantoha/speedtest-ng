@@ -172,11 +172,16 @@ module Speedtest
   end
 
   def test_upload_speed(host : String, config : Config)
-    upload_url = "http://#{host}/speedtest/upload.php"
+    url = "http://#{host}/speedtest/upload.php"
 
     upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032]
     upload_max = config.upload_maxchunkcount
     upload_count = (upload_max / upload_sizes.size).ceil.to_i
+
+    upload_data = upload_sizes.reduce({} of Int32 => Bytes) do |hash, size|
+      hash[size] = Random::Secure.random_bytes(size)
+      hash
+    end
 
     print "Testing upload speed: "
 
@@ -185,11 +190,12 @@ module Speedtest
     channel = Channel(Nil).new(upload_sizes.size * upload_count)
 
     upload_sizes.each do |size|
+      data = upload_data[size]
+
       upload_count.times do
         spawn do
           begin
-            random_data = Random::Secure.random_bytes(size)
-            response = HTTP::Client.post(upload_url, body: random_data)
+            response = HTTP::Client.post(url, body: data)
             if response.success?
               total_bytes.add(size)
               print "."
