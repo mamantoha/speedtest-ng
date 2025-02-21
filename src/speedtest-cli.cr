@@ -175,7 +175,7 @@ module Speedtest
   def test_upload_speed(host : String, config : Config)
     url = "http://#{host}/speedtest/upload.php"
 
-    upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032]
+    upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032].reverse
     upload_count = config.upload_threads
     total_requests = upload_sizes.size * upload_count
 
@@ -187,17 +187,19 @@ module Speedtest
     total_bytes = Atomic(Int64).new(0)
     completed_requests = Atomic(Int32).new(0)
     start_time = Time.monotonic
-    channel = Channel(Nil).new(total_requests)
 
     puts "Testing upload speed..."
 
     upload_sizes.each do |size|
       data = upload_data[size]
 
+      channel = Channel(Nil).new(upload_count)
+
       upload_count.times do
         spawn do
           begin
             response = HTTP::Client.post(url, body: data)
+
             if response.success?
               total_bytes.add(size)
             end
@@ -208,13 +210,11 @@ module Speedtest
           end
         end
       end
-    end
 
-    while completed_requests.get < total_requests
+      upload_count.times { channel.receive }
+
       update_progress_bar(start_time, total_bytes, completed_requests, total_requests)
     end
-
-    total_requests.times { channel.receive }
 
     puts "\n"
     end_time = Time.monotonic
