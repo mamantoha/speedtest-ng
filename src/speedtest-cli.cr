@@ -169,10 +169,9 @@ module Speedtest
 
     puts "\n"
     end_time = Time.monotonic
-    total_time = (end_time - start_time).total_seconds
-    avg_speed = (total_bytes.get * 8) / (total_time * 1_000_000.0)
+    total_time = end_time - start_time
 
-    puts "🔽 Download: #{avg_speed.round(2)} Mbit/s"
+    puts "🔼 Download: #{avg_speed_in_mbps(total_bytes.get, total_time)}"
   end
 
   def test_upload_speed(host : String, config : Config, single_mode : Bool)
@@ -220,23 +219,29 @@ module Speedtest
 
     puts "\n"
     end_time = Time.monotonic
-    total_time = (end_time - start_time).total_seconds
-    avg_speed = (total_bytes.get * 8) / (total_time * 1_000_000.0)
+    total_time = end_time - start_time
 
-    puts "🔼 Upload: #{avg_speed.round(2)} Mbit/s"
+    puts "🔼 Upload: #{avg_speed_in_mbps(total_bytes.get, total_time)}"
   end
 
   def update_progress_bar(start_time : Time::Span, total_bytes : Int64, completed_requests : Int32, total_requests : Int32)
     sleep 100.milliseconds
-    elapsed_time = (Time.monotonic - start_time).total_seconds
-    speed_mbps = elapsed_time > 0 ? (total_bytes * 8) / (elapsed_time * 1_000_000.0) : 0.0
+    elapsed_time = Time.monotonic - start_time
+
+    speed_mbps = avg_speed_in_mbps(total_bytes, elapsed_time)
 
     percentage = ((completed_requests / total_requests) * 100).clamp(0, 100).to_i
     bar_length = (percentage / 2).to_i
     progress_bar = "=" * bar_length + ">"
 
-    printf("\r%3d%% [%-50s] %7.2f Mbit/s", percentage, progress_bar.ljust(50), speed_mbps)
+    printf("\r%3d%% [%-50s] %15s", percentage, progress_bar.ljust(50), speed_mbps)
     STDOUT.flush
+  end
+
+  private def avg_speed_in_mbps(bytes : Int64, elapsed_time : Time::Span) : String
+    avg_speed = (bytes * 8) / (elapsed_time.total_seconds * 1_000_000.0)
+
+    "#{avg_speed.round(2)} Mbit/s"
   end
 
   def country_flag(code : String) : String
