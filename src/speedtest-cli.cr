@@ -234,7 +234,7 @@ module Speedtest
     bar_length = (percentage / 2).to_i
     progress_bar = "=" * bar_length + ">"
 
-    printf("\r%3d%% [%-50s] %15s", percentage, progress_bar.ljust(50), speed_mbps)
+    printf("\r%3d%% [%-51s] %15s", percentage, progress_bar.ljust(50), speed_mbps)
     STDOUT.flush
   end
 
