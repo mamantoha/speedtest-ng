@@ -90,7 +90,7 @@ module Speedtest
     end
   end
 
-  def fetch_best_server(servers) : Server
+  def fetch_best_server(servers) : {Server, Float64}
     puts "🎯 Selecting the best server based on ping..."
 
     best_server = nil
@@ -140,9 +140,7 @@ module Speedtest
       exit(1)
     end
 
-    puts hosted_server_info(best_server, best_latency)
-
-    best_server
+    {best_server, best_latency}
   end
 
   def test_download_speed(host : String, config : Config, single_mode : Bool)
@@ -365,7 +363,11 @@ module Speedtest
 
           server
         else
-          Speedtest.fetch_best_server(servers)
+          server, latency = Speedtest.fetch_best_server(servers)
+
+          puts Speedtest.hosted_server_info(server, latency)
+
+          server
         end
 
       Speedtest.test_download_speed(selected_server[:host], config, single_mode) unless no_download
