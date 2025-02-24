@@ -238,7 +238,7 @@ module Speedtest
 
     server_distances = servers.map do |server|
       distance = Haversine.distance(client_lat, client_lon, server[:lat], server[:lon])
-      { server: server, distance: distance }
+      {server: server, distance: distance}
     end
 
     server_distances.sort_by!(&.[:distance])
