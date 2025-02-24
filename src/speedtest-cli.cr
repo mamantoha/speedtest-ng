@@ -224,7 +224,32 @@ module Speedtest
     puts "🔼 Upload: #{speed_in_mbps(total_bytes.get, total_time)}"
   end
 
-  def update_progress_bar(start_time : Time::Span, total_bytes : Int64, completed_requests : Int32, total_requests : Int32)
+  def list_servers
+    servers = fetch_servers
+
+    servers.each do |server|
+      flag = country_flag(server[:cc])
+
+      printf(
+        "  %-8s %s\n",
+        server[:id],
+        "#{server[:sponsor]} (#{server[:name]}, #{flag} #{server[:country]})"
+      )
+    end
+  end
+
+  def country_flag(code : String) : String
+    offset = 127397
+    country_code_re = /^[A-Z]{2}$/
+
+    if country_code_re.match(code)
+      code.codepoints.map(&.+ offset).join(&.chr)
+    else
+      ""
+    end
+  end
+
+  private def update_progress_bar(start_time : Time::Span, total_bytes : Int64, completed_requests : Int32, total_requests : Int32)
     sleep 100.milliseconds
     elapsed_time = Time.monotonic - start_time
 
@@ -242,31 +267,6 @@ module Speedtest
     avg_speed = (bytes * 8) / (elapsed_time.total_seconds * 1_000_000.0)
 
     "#{avg_speed.round(2)} Mbit/s"
-  end
-
-  def country_flag(code : String) : String
-    offset = 127397
-    country_code_re = /^[A-Z]{2}$/
-
-    if country_code_re.match(code)
-      code.codepoints.map(&.+ offset).join(&.chr)
-    else
-      ""
-    end
-  end
-
-  def list_servers
-    servers = fetch_servers
-
-    servers.each do |server|
-      flag = country_flag(server[:cc])
-
-      printf(
-        "  %-8s %s\n",
-        server[:id],
-        "#{server[:sponsor]} (#{server[:name]}, #{flag} #{server[:country]})"
-      )
-    end
   end
 
   module CLI
