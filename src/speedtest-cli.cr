@@ -316,5 +316,3 @@ module Speedtest
     end
   end
 end
-
-Speedtest::CLI.run
