@@ -97,19 +97,26 @@ module Speedtest
     best_latency = Float64::INFINITY
 
     servers.each do |server|
-      latency_url = "http://#{server[:host]}/speedtest/latency.txt"
-
       latencies = [] of Float64
 
       3.times do
         start_time = Time.monotonic
+
         begin
-          response = HTTP::Client.get(latency_url)
-          if response.success?
-            elapsed_time = (Time.monotonic - start_time).total_milliseconds
-            latencies << elapsed_time
+          client = HTTP::Client.new(URI.parse("http://#{server[:host]}"))
+          client.connect_timeout = 1.seconds
+
+          begin
+            response = client.get("/speedtest/latency.txt")
+
+            if response.success?
+              elapsed_time = (Time.monotonic - start_time).total_milliseconds
+              latencies << elapsed_time
+            end
+          rescue ex : IO::TimeoutError
+            break
           end
-        rescue
+        rescue ex
           next
         end
       end
