@@ -355,7 +355,6 @@ module Speedtest
           Speedtest.fetch_best_server(servers)
         end
 
-
       Speedtest.test_download_speed(selected_server[:host], config, single_mode) unless no_download
       Speedtest.test_upload_speed(selected_server[:host], config, single_mode) unless no_upload
     end
