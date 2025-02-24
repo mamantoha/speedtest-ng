@@ -99,12 +99,12 @@ module Speedtest
     servers.each do |server|
       latencies = [] of Float64
 
-      3.times do
-        start_time = Time.monotonic
+      begin
+        client = HTTP::Client.new(URI.parse("http://#{server[:host]}"))
+        client.connect_timeout = 1.seconds
 
-        begin
-          client = HTTP::Client.new(URI.parse("http://#{server[:host]}"))
-          client.connect_timeout = 1.seconds
+        3.times do
+          start_time = Time.monotonic
 
           begin
             response = client.get("/speedtest/latency.txt")
@@ -113,17 +113,21 @@ module Speedtest
               elapsed_time = (Time.monotonic - start_time).total_milliseconds
               latencies << elapsed_time
             end
-          rescue ex : IO::TimeoutError
+          rescue IO::TimeoutError
             break
+          rescue
+            next
           end
-        rescue ex
-          next
         end
+
+        client.close
+      rescue
+        next
       end
 
       next if latencies.empty?
 
-      avg_latency = latencies.sort.first(3).sum / latencies.size
+      avg_latency = latencies.sum / latencies.size
 
       if avg_latency < best_latency
         best_latency = avg_latency
@@ -132,7 +136,7 @@ module Speedtest
     end
 
     if best_server.nil?
-      puts "No available servers!"
+      puts "❌ No available servers!"
       exit(1)
     end
 
