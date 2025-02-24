@@ -4,6 +4,10 @@ version: 0.1.0
 authors:
   - Anton Maminov <anton.maminov@gmail.com>
 
+dependencies:
+  haversine:
+    github: geocrystal/haversine
+
 targets:
   speedtest-ng:
     main: src/cli.cr
