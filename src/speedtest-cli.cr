@@ -42,7 +42,7 @@ module Speedtest
     response = HTTP::Client.get(url)
 
     if response.success?
-      return Config.new(response.body)
+      Config.new(response.body)
     else
       puts "Error fetching Speedtest configuration: #{response.status_code}"
       exit(1)
