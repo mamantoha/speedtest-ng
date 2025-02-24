@@ -242,6 +242,10 @@ module Speedtest
 
     result = "📍 Hosted by #{server[:sponsor]} (#{server[:name]}, #{flag} #{server[:country]})"
 
+    unless latency
+      latency = get_server_latency(server)
+    end
+
     if latency
       result = result + ": #{latency.round(2)} ms"
     end
