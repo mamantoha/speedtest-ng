@@ -341,7 +341,7 @@ module Speedtest
 
       selected_server =
         if server_id
-          server = servers.find { |s| s[:id] == server_id }
+          server = servers.find(&.[:id].==(server_id))
 
           if server.nil?
             puts "❌ Error: Server ID #{server_id} not found in the available list."
