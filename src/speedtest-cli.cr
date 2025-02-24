@@ -1,14 +1,15 @@
 require "http/client"
 require "xml"
 require "option_parser"
+require "haversine"
 
 module Speedtest
   extend self
 
   alias Server = NamedTuple(
     url: String,
-    lat: String,
-    lon: String,
+    lat: Float64,
+    lon: Float64,
     name: String,
     country: String,
     cc: String,
@@ -18,7 +19,7 @@ module Speedtest
   )
 
   class Config
-    getter client : NamedTuple(ip: String, isp: String, country: String)
+    getter client : NamedTuple(ip: String, isp: String, country: String, lat: Float64, lon: Float64)
     getter upload_threads : Int32
     getter download_threads : Int32
 
@@ -29,6 +30,8 @@ module Speedtest
         ip:      xml.xpath_string("string(//client/@ip)"),
         isp:     xml.xpath_string("string(//client/@isp)"),
         country: xml.xpath_string("string(//client/@country)"),
+        lat:     xml.xpath_float("number(//client/@lat)"),
+        lon:     xml.xpath_float("number(//client/@lon)"),
       }
 
       @upload_threads = xml.xpath_string("string(//upload/@threads)").to_i || 2
@@ -38,6 +41,8 @@ module Speedtest
 
   def fetch_speedtest_config : Config
     url = "https://www.speedtest.net/speedtest-config.php"
+
+    puts "🚀 Fetching Speedtest Configuration..."
 
     response = HTTP::Client.get(url)
 
@@ -73,8 +78,8 @@ module Speedtest
     xml.xpath_nodes("//servers/server").map do |server|
       {
         url:     server["url"],
-        lat:     server["lat"],
-        lon:     server["lon"],
+        lat:     server["lat"].to_f,
+        lon:     server["lon"].to_f,
         name:    server["name"],
         country: server["country"],
         cc:      server["cc"],
@@ -225,15 +230,29 @@ module Speedtest
   end
 
   def list_servers
+    config = fetch_speedtest_config
     servers = fetch_servers
 
-    servers.each do |server|
+    client_lat = config.client[:lat]
+    client_lon = config.client[:lon]
+
+    server_distances = servers.map do |server|
+      distance = Haversine.distance(client_lat, client_lon, server[:lat], server[:lon])
+      { server: server, distance: distance }
+    end
+
+    server_distances.sort_by!(&.[:distance])
+
+    server_distances.each do |entry|
+      server = entry[:server]
+      distance_km = entry[:distance].to_kilometers.round(2)
       flag = country_flag(server[:cc])
 
       printf(
-        "  %-8s %s\n",
+        "  %-8s %s [%s km]\n",
         server[:id],
-        "#{server[:sponsor]} (#{server[:name]}, #{flag} #{server[:country]})"
+        "#{server[:sponsor]} (#{server[:name]}, #{flag} #{server[:country]})",
+        distance_km
       )
     end
   end
@@ -285,7 +304,7 @@ module Speedtest
         parser.on("--no-download", "Do not perform download test") { no_download = true }
         parser.on("--no-upload", "Do not perform upload test") { no_upload = true }
         parser.on("--single", "Only use a single connection (simulates file transfer)") { single_mode = true }
-        parser.on("--list", "Display a list of speedtest.net servers") { list_servers_only = true }
+        parser.on("--list", "Display a list of speedtest.net servers sorted by distance") { list_servers_only = true }
         parser.on("--version", "Show the version number and exit") do
           puts "#{NAME} #{VERSION}"
           puts "Crystal #{Crystal::VERSION} [LLVM #{Crystal::LLVM_VERSION}]"
@@ -303,7 +322,6 @@ module Speedtest
         exit(0)
       end
 
-      puts "🚀 Fetching Speedtest Configuration..."
       config = Speedtest.fetch_speedtest_config
 
       puts "🌍 Testing from #{Speedtest.country_flag(config.client[:country])} #{config.client[:isp]} (#{config.client[:ip]})..."
