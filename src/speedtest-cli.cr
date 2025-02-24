@@ -334,7 +334,7 @@ module Speedtest
 
   module CLI
     NAME    = "speedtest-ng"
-    VERSION = "0.1.0"
+    VERSION = {{ `shards version #{__DIR__}`.chomp.stringify }}
 
     def self.run
       no_download = false
