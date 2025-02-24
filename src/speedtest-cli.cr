@@ -60,34 +60,50 @@ module Speedtest
   def fetch_servers : Array(Server)
     puts "📡 Retrieving speedtest.net server list..."
 
-    url = "https://www.speedtest.net/speedtest-servers.php"
+    urls = [
+      "https://www.speedtest.net/speedtest-servers.php",
+      "https://www.speedtest.net/speedtest-servers-static.php",
+      "https://c.speedtest.net/speedtest-servers.php",
+      "https://c.speedtest.net/speedtest-servers-static.php",
+    ]
 
-    response = HTTP::Client.get(url)
+    servers = [] of Server
 
-    if response.status.redirection?
-      response = HTTP::Client.get(response.headers["Location"])
+    urls.each do |url|
+      begin
+        response = HTTP::Client.get(url)
+
+        if response.status.redirection?
+          response = HTTP::Client.get(response.headers["Location"])
+        end
+
+        next unless response.success?
+
+        xml = XML.parse(response.body)
+
+        xml.xpath_nodes("//servers/server").each do |server|
+          server_id = server["id"]
+
+          unless servers.find(&.[:id].==(server_id))
+            servers << {
+              url:     server["url"],
+              lat:     server["lat"].to_f,
+              lon:     server["lon"].to_f,
+              name:    server["name"],
+              country: server["country"],
+              cc:      server["cc"],
+              sponsor: server["sponsor"],
+              id:      server_id,
+              host:    server["host"],
+            }
+          end
+        end
+      rescue ex
+        next
+      end
     end
 
-    unless response.success?
-      puts "Failed to fetch Speedtest servers: #{response.status_code}"
-      exit(1)
-    end
-
-    xml = XML.parse(response.body)
-
-    xml.xpath_nodes("//servers/server").map do |server|
-      {
-        url:     server["url"],
-        lat:     server["lat"].to_f,
-        lon:     server["lon"].to_f,
-        name:    server["name"],
-        country: server["country"],
-        cc:      server["cc"],
-        sponsor: server["sponsor"],
-        id:      server["id"],
-        host:    server["host"],
-      }
-    end
+    servers
   end
 
   def fetch_best_server(servers) : {Server, Float64}
