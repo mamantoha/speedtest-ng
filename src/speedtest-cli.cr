@@ -270,11 +270,13 @@ module Speedtest
   def hosted_server_info(server : Server, latency : Float64? = nil) : String
     flag = country_flag(server[:cc])
 
+    result = "📍 Hosted by #{server[:sponsor]} (#{server[:name]}, #{flag} #{server[:country]})"
+
     if latency
-      "📍 Hosted by #{server[:sponsor]} (#{server[:name]}, #{flag} #{server[:country]}): #{latency.round(2)} ms"
-    else
-      "📍 Hosted by #{server[:sponsor]} (#{server[:name]}, #{flag} #{server[:country]})"
+      result = result + ": #{latency.round(2)} ms"
     end
+
+    result
   end
 
   def country_flag(code : String) : String
