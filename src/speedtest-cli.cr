@@ -97,37 +97,9 @@ module Speedtest
     best_latency = Float64::INFINITY
 
     servers.each do |server|
-      latencies = [] of Float64
+      avg_latency = get_server_latency(server)
 
-      begin
-        http_client = HTTP::Client.new(URI.parse("http://#{server[:host]}"))
-        http_client.connect_timeout = 1.seconds
-
-        3.times do
-          start_time = Time.monotonic
-
-          begin
-            response = http_client.get("/speedtest/latency.txt")
-
-            if response.success?
-              elapsed_time = (Time.monotonic - start_time).total_milliseconds
-              latencies << elapsed_time
-            end
-          rescue IO::TimeoutError
-            break
-          rescue
-            next
-          end
-        end
-
-        http_client.close
-      rescue
-        next
-      end
-
-      next if latencies.empty?
-
-      avg_latency = latencies.sum / latencies.size
+      next unless avg_latency
 
       if avg_latency < best_latency
         best_latency = avg_latency
@@ -286,6 +258,40 @@ module Speedtest
     else
       ""
     end
+  end
+
+  private def get_server_latency(server) : Float64?
+    latencies = [] of Float64
+
+    begin
+      http_client = HTTP::Client.new(URI.parse("http://#{server[:host]}"))
+      http_client.connect_timeout = 1.seconds
+
+      3.times do
+        start_time = Time.monotonic
+
+        begin
+          response = http_client.get("/speedtest/latency.txt")
+
+          if response.success?
+            elapsed_time = (Time.monotonic - start_time).total_milliseconds
+            latencies << elapsed_time
+          end
+        rescue IO::TimeoutError
+          return nil
+        rescue
+          next
+        end
+      end
+
+      http_client.close
+    rescue
+      return nil
+    end
+
+    return nil if latencies.empty?
+
+    latencies.sum / latencies.size
   end
 
   private def update_progress_bar(start_time : Time::Span, total_bytes : Int64, completed_requests : Int32, total_requests : Int32)
