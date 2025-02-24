@@ -129,8 +129,7 @@ module Speedtest
       exit(1)
     end
 
-    flag = country_flag(best_server[:cc])
-    puts "📍 Hosted by #{best_server[:sponsor]} (#{best_server[:name]}, #{flag} #{best_server[:country]}): #{best_latency.round(2)} ms"
+    puts hosted_server_info(best_server, best_latency)
 
     best_server
   end
@@ -257,6 +256,16 @@ module Speedtest
     end
   end
 
+  def hosted_server_info(server : Server, latency : Float64? = nil) : String
+    flag = country_flag(server[:cc])
+
+    if latency
+      "📍 Hosted by #{server[:sponsor]} (#{server[:name]}, #{flag} #{server[:country]}): #{latency.round(2)} ms"
+    else
+      "📍 Hosted by #{server[:sponsor]} (#{server[:name]}, #{flag} #{server[:country]})"
+    end
+  end
+
   def country_flag(code : String) : String
     offset = 127397
     country_code_re = /^[A-Z]{2}$/
@@ -297,6 +306,7 @@ module Speedtest
       no_upload = false
       single_mode = false
       list_servers_only = false
+      server_id = nil
 
       OptionParser.parse do |parser|
         parser.banner = "Usage: #{NAME} [options]"
@@ -305,6 +315,7 @@ module Speedtest
         parser.on("--no-upload", "Do not perform upload test") { no_upload = true }
         parser.on("--single", "Only use a single connection (simulates file transfer)") { single_mode = true }
         parser.on("--list", "Display a list of speedtest.net servers sorted by distance") { list_servers_only = true }
+        parser.on("--server SERVER", "Specify a server ID to test against") { |id| server_id = id }
         parser.on("--version", "Show the version number and exit") do
           puts "#{NAME} #{VERSION}"
           puts "Crystal #{Crystal::VERSION} [LLVM #{Crystal::LLVM_VERSION}]"
@@ -327,10 +338,26 @@ module Speedtest
       puts "🌍 Testing from #{Speedtest.country_flag(config.client[:country])} #{config.client[:isp]} (#{config.client[:ip]})..."
 
       servers = Speedtest.fetch_servers
-      best_server = Speedtest.fetch_best_server(servers)
 
-      Speedtest.test_download_speed(best_server[:host], config, single_mode) unless no_download
-      Speedtest.test_upload_speed(best_server[:host], config, single_mode) unless no_upload
+      selected_server =
+        if server_id
+          server = servers.find { |s| s[:id] == server_id }
+
+          if server.nil?
+            puts "❌ Error: Server ID #{server_id} not found in the available list."
+            exit(1)
+          end
+
+          puts Speedtest.hosted_server_info(server)
+
+          server
+        else
+          Speedtest.fetch_best_server(servers)
+        end
+
+
+      Speedtest.test_download_speed(selected_server[:host], config, single_mode) unless no_download
+      Speedtest.test_upload_speed(selected_server[:host], config, single_mode) unless no_upload
     end
   end
 end
