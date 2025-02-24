@@ -67,7 +67,7 @@ module Speedtest
       "https://c.speedtest.net/speedtest-servers-static.php",
     ]
 
-    servers = [] of Server
+    servers = {} of String => Server
 
     urls.each do |url|
       begin
@@ -84,26 +84,24 @@ module Speedtest
         xml.xpath_nodes("//servers/server").each do |server|
           server_id = server["id"]
 
-          unless servers.find(&.[:id].==(server_id))
-            servers << {
-              url:     server["url"],
-              lat:     server["lat"].to_f,
-              lon:     server["lon"].to_f,
-              name:    server["name"],
-              country: server["country"],
-              cc:      server["cc"],
-              sponsor: server["sponsor"],
-              id:      server_id,
-              host:    server["host"],
-            }
-          end
+          servers[server_id] ||= {
+            url:     server["url"],
+            lat:     server["lat"].to_f,
+            lon:     server["lon"].to_f,
+            name:    server["name"],
+            country: server["country"],
+            cc:      server["cc"],
+            sponsor: server["sponsor"],
+            id:      server_id,
+            host:    server["host"],
+          }
         end
       rescue ex
         next
       end
     end
 
-    servers
+    servers.values
   end
 
   def fetch_best_server(servers) : {Server, Float64}
