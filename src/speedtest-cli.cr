@@ -100,14 +100,14 @@ module Speedtest
       latencies = [] of Float64
 
       begin
-        client = HTTP::Client.new(URI.parse("http://#{server[:host]}"))
-        client.connect_timeout = 1.seconds
+        http_client = HTTP::Client.new(URI.parse("http://#{server[:host]}"))
+        http_client.connect_timeout = 1.seconds
 
         3.times do
           start_time = Time.monotonic
 
           begin
-            response = client.get("/speedtest/latency.txt")
+            response = http_client.get("/speedtest/latency.txt")
 
             if response.success?
               elapsed_time = (Time.monotonic - start_time).total_milliseconds
@@ -120,7 +120,7 @@ module Speedtest
           end
         end
 
-        client.close
+        http_client.close
       rescue
         next
       end
