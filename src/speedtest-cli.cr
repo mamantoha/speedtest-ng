@@ -1,22 +1,31 @@
 require "http/client"
 require "xml"
+require "json"
 require "option_parser"
 require "haversine"
 
 module Speedtest
   extend self
 
-  alias Server = NamedTuple(
-    url: String,
-    lat: Float64,
-    lon: Float64,
-    name: String,
-    country: String,
-    cc: String,
-    sponsor: String,
-    id: String,
-    host: String,
-  )
+  alias Servers = Array(Server)
+
+  class Server
+    include JSON::Serializable
+
+    property url : String
+    property lat : String
+    property lon : String
+    property distance : Int32
+    property name : String
+    property country : String
+    property cc : String
+    property sponsor : String
+    property id : String
+    property preferred : Int32
+    property https_functional : Int32
+    property host : String
+    property force_ping_select : Int32?
+  end
 
   class Config
     getter client : NamedTuple(ip: String, isp: String, country: String, lat: Float64, lon: Float64)
@@ -57,51 +66,14 @@ module Speedtest
     exit(1)
   end
 
-  def fetch_servers : Array(Server)
+  def fetch_servers : Servers
     puts "📡 Retrieving speedtest.net server list..."
 
-    urls = [
-      "https://www.speedtest.net/speedtest-servers.php",
-      "https://www.speedtest.net/speedtest-servers-static.php",
-      "https://c.speedtest.net/speedtest-servers.php",
-      "https://c.speedtest.net/speedtest-servers-static.php",
-    ]
+    url = "https://www.speedtest.net/api/js/servers?engine=js&limit=10&https_functional=true"
 
-    servers = {} of String => Server
+    response = HTTP::Client.get(url)
 
-    urls.each do |url|
-      begin
-        response = HTTP::Client.get(url)
-
-        if response.status.redirection?
-          response = HTTP::Client.get(response.headers["Location"])
-        end
-
-        next unless response.success?
-
-        xml = XML.parse(response.body)
-
-        xml.xpath_nodes("//servers/server").each do |server|
-          server_id = server["id"]
-
-          servers[server_id] ||= {
-            url:     server["url"],
-            lat:     server["lat"].to_f,
-            lon:     server["lon"].to_f,
-            name:    server["name"],
-            country: server["country"],
-            cc:      server["cc"],
-            sponsor: server["sponsor"],
-            id:      server_id,
-            host:    server["host"],
-          }
-        end
-      rescue ex
-        next
-      end
-    end
-
-    servers.values
+    Servers.from_json(response.body)
   end
 
   def fetch_best_server(servers) : {Server, Float64}
@@ -231,7 +203,7 @@ module Speedtest
     client_lon = config.client[:lon]
 
     server_distances = servers.map do |server|
-      distance = Haversine.distance(client_lat, client_lon, server[:lat], server[:lon])
+      distance = Haversine.distance(client_lat, client_lon, server.lat.to_f, server.lon.to_f)
       {server: server, distance: distance}
     end
 
@@ -240,21 +212,21 @@ module Speedtest
     server_distances.each do |entry|
       server = entry[:server]
       distance_km = entry[:distance].to_kilometers.round(2)
-      flag = country_flag(server[:cc])
+      flag = country_flag(server.cc)
 
       printf(
         "  %-8s %s [%s km]\n",
-        server[:id],
-        "#{server[:sponsor]} (#{server[:name]}, #{flag} #{server[:country]})",
+        server.id,
+        "#{server.sponsor} (#{server.name}, #{flag} #{server.country})",
         distance_km
       )
     end
   end
 
   def hosted_server_info(server : Server, latency : Float64? = nil) : String
-    flag = country_flag(server[:cc])
+    flag = country_flag(server.cc)
 
-    result = "📍 Hosted by #{server[:sponsor]} (#{server[:name]}, #{flag} #{server[:country]})"
+    result = "📍 Hosted by #{server.sponsor} (#{server.name}, #{flag} #{server.country})"
 
     unless latency
       latency = get_server_latency(server)
@@ -282,7 +254,7 @@ module Speedtest
     latencies = [] of Float64
 
     begin
-      http_client = HTTP::Client.new(URI.parse("http://#{server[:host]}"))
+      http_client = HTTP::Client.new(URI.parse("http://#{server.host}"))
       http_client.connect_timeout = 1.seconds
 
       3.times do
@@ -375,11 +347,11 @@ module Speedtest
       servers = Speedtest.fetch_servers
 
       selected_server =
-        if server_id
-          server = servers.find(&.[:id].==(server_id))
+        if id = server_id
+          server = servers.find(&.id.==(id))
 
           if server.nil?
-            puts "❌ Error: Server ID #{server_id} not found in the available list."
+            puts "❌ Error: Server ID #{id} not found in the available list."
             exit(1)
           end
 
@@ -394,8 +366,8 @@ module Speedtest
           server
         end
 
-      Speedtest.test_download_speed(selected_server[:host], config, single_mode) unless no_download
-      Speedtest.test_upload_speed(selected_server[:host], config, single_mode) unless no_upload
+      Speedtest.test_download_speed(selected_server.host, config, single_mode) unless no_download
+      Speedtest.test_upload_speed(selected_server.host, config, single_mode) unless no_upload
     end
   end
 end
