@@ -332,6 +332,12 @@ module Speedtest
           puts parser
           exit
         end
+
+        parser.invalid_option do |flag|
+          puts "error: unrecognized arguments: #{flag}"
+          STDERR.puts parser
+          exit(1)
+        end
       end
 
       if list_servers_only
