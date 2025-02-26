@@ -223,10 +223,15 @@ module Speedtest
     end
   end
 
-  def hosted_server_info(server : Server, latency : Float64? = nil) : String
+  def hosted_server_info(server : Server, config : Config, latency : Float64? = nil) : String
     flag = country_flag(server.cc)
 
-    result = "📍 Hosted by #{server.sponsor} (#{server.name}, #{flag} #{server.country})"
+    client_lat = config.client[:lat]
+    client_lon = config.client[:lon]
+
+    distance = Haversine.distance(client_lat, client_lon, server.lat.to_f, server.lon.to_f)
+
+    result = "📍 Hosted by #{server.sponsor} (#{server.name}, #{flag} #{server.country}) [#{distance.to_kilometers.round(2)} km]"
 
     unless latency
       latency = get_server_latency(server)
@@ -361,13 +366,13 @@ module Speedtest
             exit(1)
           end
 
-          puts Speedtest.hosted_server_info(server)
+          puts Speedtest.hosted_server_info(server, config)
 
           server
         else
           server, latency = Speedtest.fetch_best_server(servers)
 
-          puts Speedtest.hosted_server_info(server, latency)
+          puts Speedtest.hosted_server_info(server, config, latency)
 
           server
         end
