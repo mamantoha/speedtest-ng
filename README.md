@@ -9,6 +9,10 @@ Inspired by the Python-based [speedtest-cli](https://github.com/sivel/speedtest-
 
 ## Installation
 
+Precompiled executables are available for Linux, macOS and Windows from [Releases](https://github.com/mamantoha/speedtest-ng/releases) page.
+
+### Build from source
+
 Clone the repository:
 
 ```sh
@@ -25,7 +29,15 @@ shards build --release
 ## Usage
 
 ```sh
-./bin/speedtest-ng
+speedtest-ng --help
+Usage: speedtest-ng [options]
+    --no-download                    Do not perform download test
+    --no-upload                      Do not perform upload test
+    --single                         Only use a single connection (simulates file transfer)
+    --list                           Display a list of speedtest.net servers sorted by distance
+    --server SERVER                  Specify a server ID to test against
+    --version                        Show the version number and exit
+    -h, --help                       Show this help message and exit
 ```
 
 ## Contributing
