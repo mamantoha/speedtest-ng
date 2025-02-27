@@ -312,7 +312,7 @@ module Speedtest
   module CLI
     NAME       = "speedtest-ng"
     VERSION    = {{ `shards version #{__DIR__}`.chomp.stringify }}
-    BUILD_DATE = {{ `crystal eval 'puts Time.utc.to_s("%Y-%m-%d")'`.stringify.chomp }}
+    BUILD_DATE = {{ `crystal eval "puts Time.utc"`.stringify.chomp }}
 
     def self.run
       no_download = false
