@@ -1,0 +1,38 @@
+name: speedtest-ng
+base: core20
+version: '0.3.0'
+summary: A command-line tool for testing internet speed using Speedtest.net
+description: |
+  A command-line tool for testing internet speed using Speedtest.net, written in Crystal.
+  Inspired by the Python-based speedtest-cli.
+contact: anton.maminov@gmai.com
+
+grade: stable
+confinement: strict
+
+type: app
+architectures: [amd64]
+compression: lzo
+
+license: MIT
+
+website: https://github.com/mamantoha/speedtest-ng
+issues: https://github.com/mamantoha/speedtest-ng/issues
+source-code: https://github.com/mamantoha/speedtest-ng.git
+
+layout:
+  /usr/include/linux/input-event-codes.h:
+    bind-file: $SNAP/usr/include/linux/input-event-codes.h
+
+apps:
+  speedtest-ng:
+    command: bin/speedtest-ng
+    plugs:
+      - network
+
+parts:
+  speedtest-ng:
+    plugin: crystal
+    source: ./
+    crystal-build-options:
+    - -Dpreview_mt
