@@ -310,8 +310,9 @@ module Speedtest
   end
 
   module CLI
-    NAME    = "speedtest-ng"
-    VERSION = {{ `shards version #{__DIR__}`.chomp.stringify }}
+    NAME       = "speedtest-ng"
+    VERSION    = {{ `shards version #{__DIR__}`.chomp.stringify }}
+    BUILD_DATE = {{ `crystal eval 'puts Time.utc.to_s("%Y-%m-%d")'`.stringify.chomp }}
 
     def self.run
       no_download = false
@@ -329,7 +330,8 @@ module Speedtest
         parser.on("--list", "Display a list of speedtest.net servers sorted by distance") { list_servers_only = true }
         parser.on("--server SERVER", "Specify a server ID to test against") { |id| server_id = id }
         parser.on("--version", "Show the version number and exit") do
-          puts "#{NAME} #{VERSION}"
+          puts "#{NAME} #{VERSION} (#{BUILD_DATE})"
+          puts
           puts "Crystal #{Crystal::VERSION} [LLVM #{Crystal::LLVM_VERSION}]"
           exit
         end
