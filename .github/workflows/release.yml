@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  release:
+    name: Publish for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, macos-14, windows-latest]
+
+        include:
+          - os: ubuntu-latest
+            target_name: speedtest-ng
+            asset_suffix: linux-amd64
+          - os: macos-latest
+            target_name: speedtest-ng
+            asset_suffix: darwin-amd64
+          - os: macos-14
+            target_name: speedtest-ng
+            asset_suffix: darwin-aarch64
+          - os: windows-latest
+            target_name: speedtest-ng.exe
+            asset_suffix: windows-amd64.exe
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Crystal
+        uses: crystal-lang/install-crystal@v1
+      - name: Install dependencies
+        run: shards install --production
+      - name: Compile release
+        env:
+          LLVM_CONFIG: /usr/local/opt/llvm/bin/llvm-config
+          PKG_CONFIG_PATH: /usr/local/opt/openssl/lib/pkgconfig
+        run: |
+          crystal -v
+          shards build --release
+      - name: Add binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: bin/${{ matrix.target_name }}
+          asset_name: speedtest-ng_${{ github.ref_name }}_${{ matrix.asset_suffix }}
+          tag: ${{ github.ref }}
+          overwrite: true
