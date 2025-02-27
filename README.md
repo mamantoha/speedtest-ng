@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/github/license/mamantoha/speedtest-ng.svg)](https://github.com/mamantoha/speedtest-ng/blob/master/LICENSE)
 
 A command-line tool for testing internet speed using Speedtest.net, written in Crystal.
-Inspired by the Python-based [speedtest-cli](https://www.speedtest.net/).
+Inspired by the Python-based [speedtest-cli](https://github.com/sivel/speedtest-cli).
 
 ## Installation
 
