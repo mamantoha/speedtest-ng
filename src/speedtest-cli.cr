@@ -142,7 +142,7 @@ module Speedtest
     end_time = Time.monotonic
     total_time = end_time - start_time
 
-    puts "🔼 Download: #{speed_in_mbps(total_bytes.get, total_time)}"
+    puts "🔽 Download: #{speed_in_mbps(total_bytes.get, total_time)}"
   end
 
   def test_upload_speed(host : String, config : Config, single_mode : Bool)
