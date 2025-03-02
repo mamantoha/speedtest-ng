@@ -10,6 +10,8 @@ Inspired by the Python-based [speedtest-cli](https://github.com/sivel/speedtest-
 
 ## Installation
 
+[![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/speedtest-ng)
+
 Precompiled executables are available for Linux, macOS and Windows from [Releases](https://github.com/mamantoha/speedtest-ng/releases) page.
 
 ### Build from source
