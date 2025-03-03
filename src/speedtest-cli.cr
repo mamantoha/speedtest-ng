@@ -120,7 +120,6 @@ module Speedtest
 
     transferred_bytes = Atomic(Int64).new(0)
     start_time = Time.monotonic
-    progress_bar_last_update_time = start_time
 
     buffer_size = 4096
     buffer = Bytes.new(buffer_size)
@@ -148,12 +147,6 @@ module Speedtest
                 # Stop the test if more than a minute have passed
                 if current_time - start_time > 1.minute
                   channel.send(nil)
-                end
-
-                # Update progress bar every second
-                if current_time - progress_bar_last_update_time > 1.second
-                  update_progress_bar(start_time, transferred_bytes.get, total_bytes)
-                  progress_bar_last_update_time = current_time
                 end
               end
             end
