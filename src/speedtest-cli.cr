@@ -102,8 +102,6 @@ module Speedtest
   end
 
   def test_download_speed(host : String, config : Config, single_mode : Bool)
-    base_url = "http://#{host}/speedtest"
-
     download_sizes = {
       4000 => 31625365,
       3500 => 24262167,
@@ -127,7 +125,7 @@ module Speedtest
     puts "⬇️ Testing download speed..."
 
     download_sizes.each do |size, _bytes|
-      url = "#{base_url}/random#{size}x#{size}.jpg"
+      url = "http://#{host}/speedtest/random#{size}x#{size}.jpg"
 
       channel = Channel(Nil).new(threads)
 
