@@ -102,30 +102,29 @@ module Speedtest
   end
 
   def test_download_speed(host : String, config : Config, single_mode : Bool)
-    download_sizes = {
-      4000 => 31625365,
-      3500 => 24262167,
-      3000 => 17816816,
-      2500 => 12407926,
-      2000 => 7907740,
-      1500 => 4468241,
-      1000 => 1986284,
-       750 => 1118012,
-       500 => 505544,
-       350 => 245388,
-    }
+    download_sizes = [
+      30000000,
+      25000000,
+      15000000,
+      10000000,
+      5000000,
+      2000000,
+      1000000,
+      500000,
+      250000,
+    ]
 
     threads = single_mode ? 1 : config.download_threads
 
-    total_bytes = download_sizes.values.sum * threads
+    total_bytes = download_sizes.sum * threads
 
     transferred_bytes = Atomic(Int64).new(0)
     start_time = Time.monotonic
 
     puts "⬇️ Testing download speed..."
 
-    download_sizes.each do |size, _bytes|
-      url = "http://#{host}/speedtest/random#{size}x#{size}.jpg"
+    download_sizes.each do |size|
+      url = "http://#{host}/download?size=#{size}"
 
       channel = Channel(Nil).new(threads)
 
