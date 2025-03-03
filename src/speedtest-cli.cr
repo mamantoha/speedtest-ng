@@ -154,7 +154,7 @@ module Speedtest
     end_time = Time.monotonic
     total_time = end_time - start_time
 
-    puts "🔽 Download: #{speed_in_mbps(transferred_bytes.get, total_time)}"
+    puts "🔽 Download: #{speed_in_mbps(transferred_bytes.get, total_time)} (#{transferred_bytes.get.humanize_bytes} in #{total_time.seconds} seconds)"
   end
 
   def test_upload_speed(host : String, config : Config, single_mode : Bool)
@@ -202,7 +202,7 @@ module Speedtest
     end_time = Time.monotonic
     total_time = end_time - start_time
 
-    puts "🔼 Upload: #{speed_in_mbps(transferred_bytes.get, total_time)}"
+    puts "🔼 Upload: #{speed_in_mbps(transferred_bytes.get, total_time)} (#{transferred_bytes.get.humanize_bytes} in #{total_time.seconds} seconds)"
   end
 
   def list_servers
