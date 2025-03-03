@@ -103,23 +103,27 @@ module Speedtest
 
   def test_download_speed(host : String, config : Config, single_mode : Bool)
     download_sizes = [
-      30000000,
-      25000000,
-      15000000,
-      10000000,
-      5000000,
-      2000000,
-      1000000,
-      500000,
-      250000,
+      30_000_000,
+      25_000_000,
+      15_000_000,
+      10_000_000,
+      5_000_000,
+      2_000_000,
+      1_000_000,
+      500_000,
+      250_000,
     ]
 
     threads = single_mode ? 1 : config.download_threads
 
-    total_bytes = download_sizes.sum * threads
+    total_bytes = (download_sizes.sum * threads).to_i64
 
     transferred_bytes = Atomic(Int64).new(0)
     start_time = Time.monotonic
+    progress_bar_last_update_time = start_time
+
+    buffer_size = 4096
+    buffer = Bytes.new(buffer_size)
 
     puts "⬇️ Testing download speed..."
 
@@ -131,10 +135,27 @@ module Speedtest
       threads.times do
         spawn do
           begin
-            response = HTTP::Client.get(url)
+            HTTP::Client.get(url) do |response|
+              loop do
+                bytes_read = response.body_io.read(buffer)
 
-            if response.success?
-              transferred_bytes.add(response.body.bytesize)
+                break if bytes_read == 0
+
+                transferred_bytes.add(bytes_read)
+
+                current_time = Time.monotonic
+
+                # Stop the test if more than a minute have passed
+                if current_time - start_time > 1.minute
+                  channel.send(nil)
+                end
+
+                # Update progress bar every second
+                if current_time - progress_bar_last_update_time > 1.second
+                  update_progress_bar(start_time, transferred_bytes.get, total_bytes)
+                  progress_bar_last_update_time = current_time
+                end
+              end
             end
           rescue
           ensure
