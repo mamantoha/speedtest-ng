@@ -7,6 +7,8 @@ require "haversine"
 module Speedtest
   extend self
 
+  private PROGRESS_MUTEX = Mutex.new
+
   alias Servers = Array(Server)
 
   class Server
@@ -120,6 +122,7 @@ module Speedtest
 
     transferred_bytes = Atomic(Int64).new(0)
     start_time = Time.monotonic
+    progress_bar_last_update_time = start_time
 
     buffer_size = 4096
     buffer = Bytes.new(buffer_size)
@@ -147,6 +150,12 @@ module Speedtest
                 # Stop the test if more than a minute have passed
                 if current_time - start_time > 1.minute
                   channel.send(nil)
+                end
+
+                # Update progress bar every second
+                if current_time - progress_bar_last_update_time > 1.second
+                  update_progress_bar(start_time, transferred_bytes.get, total_bytes)
+                  progress_bar_last_update_time = current_time
                 end
               end
             end
@@ -319,8 +328,10 @@ module Speedtest
     bar_length = (percentage / 2).to_i
     progress_bar = "=" * bar_length + ">"
 
-    printf("\r%3d%% [%-51s] %15s", percentage, progress_bar.ljust(50), speed_mbps)
-    STDOUT.flush
+    PROGRESS_MUTEX.synchronize do
+      printf("\r%3d%% [%-51s] %15s", percentage, progress_bar.ljust(50), speed_mbps)
+      STDOUT.flush
+    end
   end
 
   private def speed_in_mbps(bytes : Int64, elapsed_time : Time::Span) : String
