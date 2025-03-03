@@ -103,15 +103,15 @@ module Speedtest
 
   def test_download_speed(host : String, config : Config, single_mode : Bool)
     download_sizes = [
-      30000000,
-      25000000,
-      15000000,
-      10000000,
-      5000000,
-      2000000,
-      1000000,
-      500000,
-      250000,
+      30_000_000,
+      25_000_000,
+      15_000_000,
+      10_000_000,
+      5_000_000,
+      2_000_000,
+      1_000_000,
+      500_000,
+      250_000,
     ]
 
     threads = single_mode ? 1 : config.download_threads
