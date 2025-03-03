@@ -120,6 +120,10 @@ module Speedtest
 
     transferred_bytes = Atomic(Int64).new(0)
     start_time = Time.monotonic
+    progress_bar_last_update_time = start_time
+
+    buffer_size = 4096
+    buffer = Bytes.new(buffer_size)
 
     puts "⬇️ Testing download speed..."
 
@@ -131,10 +135,21 @@ module Speedtest
       threads.times do
         spawn do
           begin
-            response = HTTP::Client.get(url)
+            HTTP::Client.get(url) do |response|
+              loop do
+                bytes_read = response.body_io.read(buffer)
 
-            if response.success?
-              transferred_bytes.add(response.body.bytesize)
+                break if bytes_read == 0
+
+                transferred_bytes.add(bytes_read)
+
+                # Update progress bar every second
+                current_time = Time.monotonic
+                if (current_time - progress_bar_last_update_time).total_seconds >= 1
+                  update_progress_bar(start_time, transferred_bytes.get, total_bytes)
+                  progress_bar_last_update_time = current_time
+                end
+              end
             end
           rescue
           ensure
