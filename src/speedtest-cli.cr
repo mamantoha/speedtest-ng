@@ -103,17 +103,30 @@ module Speedtest
 
   def test_download_speed(host : String, config : Config, single_mode : Bool)
     base_url = "http://#{host}/speedtest"
-    download_sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000].reverse
-    threads = single_mode ? 1 : config.download_threads
-    total_requests = download_sizes.size * threads
 
-    total_bytes = Atomic(Int64).new(0)
-    completed_requests = Atomic(Int32).new(0)
+    download_sizes = {
+      4000 => 31625365,
+      3500 => 24262167,
+      3000 => 17816816,
+      2500 => 12407926,
+      2000 => 7907740,
+      1500 => 4468241,
+      1000 => 1986284,
+       750 => 1118012,
+       500 => 505544,
+       350 => 245388,
+    }
+
+    threads = single_mode ? 1 : config.download_threads
+
+    total_bytes = download_sizes.values.sum * threads
+
+    transferred_bytes = Atomic(Int64).new(0)
     start_time = Time.monotonic
 
     puts "⬇️ Testing download speed..."
 
-    download_sizes.each do |size|
+    download_sizes.each do |size, bytes|
       url = "#{base_url}/random#{size}x#{size}.jpg"
 
       channel = Channel(Nil).new(threads)
@@ -124,12 +137,11 @@ module Speedtest
             response = HTTP::Client.get(url)
 
             if response.success?
-              total_bytes.add(response.body.bytesize)
+              transferred_bytes.add(response.body.bytesize)
             end
           rescue
           ensure
-            completed_requests.add(1)
-            update_progress_bar(start_time, total_bytes.get, completed_requests.get, total_requests)
+            update_progress_bar(start_time, transferred_bytes.get, total_bytes)
             channel.send(nil)
           end
         end
@@ -142,23 +154,22 @@ module Speedtest
     end_time = Time.monotonic
     total_time = end_time - start_time
 
-    puts "🔽 Download: #{speed_in_mbps(total_bytes.get, total_time)}"
+    puts "🔽 Download: #{speed_in_mbps(transferred_bytes.get, total_time)}"
   end
 
   def test_upload_speed(host : String, config : Config, single_mode : Bool)
-    url = "http://#{host}/speedtest/upload.php"
+    url = "http://#{host}/upload"
 
     upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032].reverse
     threads = single_mode ? 1 : config.upload_threads
-    total_requests = upload_sizes.size * threads
+    total_bytes = upload_sizes.sum * threads
 
     upload_data = upload_sizes.reduce({} of Int32 => Bytes) do |hash, size|
       hash[size] = Random::Secure.random_bytes(size)
       hash
     end
 
-    total_bytes = Atomic(Int64).new(0)
-    completed_requests = Atomic(Int32).new(0)
+    transferred_bytes = Atomic(Int64).new(0)
     start_time = Time.monotonic
 
     puts "⬆️ Testing upload speed..."
@@ -174,12 +185,11 @@ module Speedtest
             response = HTTP::Client.post(url, body: data)
 
             if response.success?
-              total_bytes.add(size)
+              transferred_bytes.add(size)
             end
           rescue
           ensure
-            completed_requests.add(1)
-            update_progress_bar(start_time, total_bytes.get, completed_requests.get, total_requests)
+            update_progress_bar(start_time, transferred_bytes.get, total_bytes)
             channel.send(nil)
           end
         end
@@ -192,7 +202,7 @@ module Speedtest
     end_time = Time.monotonic
     total_time = end_time - start_time
 
-    puts "🔼 Upload: #{speed_in_mbps(total_bytes.get, total_time)}"
+    puts "🔼 Upload: #{speed_in_mbps(transferred_bytes.get, total_time)}"
   end
 
   def list_servers
@@ -289,13 +299,12 @@ module Speedtest
     latencies.sum / latencies.size
   end
 
-  private def update_progress_bar(start_time : Time::Span, total_bytes : Int64, completed_requests : Int32, total_requests : Int32)
-    sleep 100.milliseconds
+  private def update_progress_bar(start_time : Time::Span, bytes : Int64, total_bytes : Int64)
     elapsed_time = Time.monotonic - start_time
 
-    speed_mbps = speed_in_mbps(total_bytes, elapsed_time)
+    speed_mbps = speed_in_mbps(bytes, elapsed_time)
 
-    percentage = ((completed_requests / total_requests) * 100).clamp(0, 100).to_i
+    percentage = ((bytes / total_bytes) * 100).clamp(0, 100).to_i
     bar_length = (percentage / 2).to_i
     progress_bar = "=" * bar_length + ">"
 
