@@ -146,13 +146,12 @@ module Speedtest
                 current_time = Time.monotonic
 
                 # Stop the test if more than a minute have passed
-                if current_time - start_time >= 1.minute
-                  total_bytes = transferred_bytes.get
+                if current_time - start_time > 1.minute
                   channel.send(nil)
                 end
 
                 # Update progress bar every second
-                if (current_time - progress_bar_last_update_time).total_seconds >= 1
+                if current_time - progress_bar_last_update_time > 1.second
                   update_progress_bar(start_time, transferred_bytes.get, total_bytes)
                   progress_bar_last_update_time = current_time
                 end
