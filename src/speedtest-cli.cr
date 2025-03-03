@@ -126,7 +126,7 @@ module Speedtest
 
     puts "⬇️ Testing download speed..."
 
-    download_sizes.each do |size, bytes|
+    download_sizes.each do |size, _bytes|
       url = "#{base_url}/random#{size}x#{size}.jpg"
 
       channel = Channel(Nil).new(threads)
