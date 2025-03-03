@@ -337,7 +337,7 @@ module Speedtest
   private def speed_in_mbps(bytes : Int64, elapsed_time : Time::Span) : String
     avg_speed = (bytes * 8) / (elapsed_time.total_seconds * 1_000_000.0)
 
-    "#{avg_speed.round(2)} Mbit/s"
+    "%.2f Mbit/s" % avg_speed
   end
 
   module CLI
