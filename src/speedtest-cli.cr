@@ -132,7 +132,7 @@ module Speedtest
 
     active_workers = Atomic(Int32).new(0)
 
-    WaitGroup.wait do |wait_group|
+    WaitGroup.wait do |wg|
       download_urls.each do |url|
         # Ensure only `threads` concurrent downloads
         while active_workers.get >= threads
@@ -140,7 +140,7 @@ module Speedtest
         end
 
         active_workers.add(1)
-        wait_group.spawn do
+        wg.spawn do
           begin
             HTTP::Client.get(url) do |response|
               loop do
