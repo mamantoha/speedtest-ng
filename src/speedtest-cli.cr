@@ -105,22 +105,14 @@ module Speedtest
 
   def test_download_speed(host : String, config : Config, single_mode : Bool)
     download_sizes = [
-      30_000_000,
-      25_000_000,
-      15_000_000,
-      10_000_000,
-      5_000_000,
-      2_000_000,
-      1_000_000,
-      500_000,
-      250_000,
+      30_000_000, 25_000_000, 15_000_000, 10_000_000,
+      5_000_000, 2_000_000, 1_000_000, 500_000, 250_000,
     ]
 
     threads = single_mode ? 1 : config.download_threads
-
     total_bytes = (download_sizes.sum * threads).to_i64
-
     transferred_bytes = Atomic(Int64).new(0)
+
     start_time = Time.monotonic
     progress_bar_last_update_time = start_time
 
@@ -129,14 +121,31 @@ module Speedtest
 
     puts "⬇️ Testing download speed..."
 
-    download_sizes.each do |size|
-      url = "http://#{host}/download?size=#{size}"
+    # Queue to store all download tasks
+    download_queue = Channel(Int32).new
+    semaphore = Channel(Nil).new(threads) # Limit concurrency
+    completed = Atomic(Int32).new(0)
 
-      channel = Channel(Nil).new(threads)
+    # Producer: Fill the queue asynchronously
+    spawn do
+      download_sizes.each do |size|
+        threads.times { download_queue.send(size) } # Each size should be downloaded by `threads` times
+      end
+      download_queue.close
+    end
 
-      threads.times do
-        spawn do
+    # Worker threads: Always `threads` running at the same time
+    threads.times do
+      spawn do
+        loop do
+          size = download_queue.receive?
+          break unless size
+
+          semaphore.send(nil) # Limit concurrency
+
           begin
+            url = "http://#{host}/download?size=#{size}"
+
             HTTP::Client.get(url) do |response|
               loop do
                 bytes_read = response.body_io.read(buffer)
@@ -147,12 +156,6 @@ module Speedtest
 
                 current_time = Time.monotonic
 
-                # Stop the test if more than a minute have passed
-                if current_time - start_time > 1.minute
-                  channel.send(nil)
-                end
-
-                # Update progress bar every second
                 if current_time - progress_bar_last_update_time > 1.second
                   update_progress_bar(start_time, transferred_bytes.get, total_bytes)
                   progress_bar_last_update_time = current_time
@@ -162,12 +165,17 @@ module Speedtest
           rescue
           ensure
             update_progress_bar(start_time, transferred_bytes.get, total_bytes)
-            channel.send(nil)
+            semaphore.receive # Allow another download to start
+            completed.add(1)
           end
         end
       end
+    end
 
-      threads.times { channel.receive }
+    # Wait for all downloads to complete
+    loop do
+      sleep 100.milliseconds
+      break if completed.get >= download_sizes.size * threads
     end
 
     puts "\n"
