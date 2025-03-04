@@ -187,26 +187,22 @@ module Speedtest
     upload_sizes.each do |size|
       data = upload_data[size]
 
-      wg = WaitGroup.new(threads)
+      WaitGroup.wait do |wait_group|
+        threads.times do
+          wait_group.spawn do
+            begin
+              response = HTTP::Client.post(url, body: data)
 
-      threads.times do
-        spawn do
-          begin
-            response = HTTP::Client.post(url, body: data)
-
-            if response.success?
-              transferred_bytes.add(size)
+              if response.success?
+                transferred_bytes.add(size)
+              end
+            rescue
+            ensure
+              update_progress_bar(start_time, transferred_bytes.get, total_bytes)
             end
-          rescue
-          ensure
-            update_progress_bar(start_time, transferred_bytes.get, total_bytes)
           end
-        ensure
-          wg.done
         end
       end
-
-      wg.wait
     end
 
     puts "\n"
