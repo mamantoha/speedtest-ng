@@ -2,6 +2,7 @@ require "http/client"
 require "xml"
 require "json"
 require "option_parser"
+require "wait_group"
 require "haversine"
 
 module Speedtest
@@ -119,72 +120,55 @@ module Speedtest
     buffer_size = 4096
     buffer = Bytes.new(buffer_size)
 
-    active_downloads = Atomic(Int32).new(0) # Track number of active downloads
-
     puts "⬇️ Testing download speed..."
 
-    download_urls = Array(String).new
-    download_sizes.each do |size|
-      threads.times { download_urls << "http://#{host}/download?size=#{size}" }
-    end
-
+    # Generate and shuffle download URLs
+    download_urls = download_sizes.flat_map { |size| Array.new(threads, "http://#{host}/download?size=#{size}") }
     download_urls.shuffle!
 
-    # Queue to store all download URLs
-    download_queue = Channel(String).new
-    semaphore = Channel(Nil).new(threads) # Limit concurrency
-    completed = Atomic(Int32).new(0)
+    wg = WaitGroup.new
+    active_downloads = Atomic(Int32).new(0) # Track active downloads
+    total_downloads = download_urls.size
 
-    # Producer: Fill the queue asynchronously with URLs
-    spawn do
-      download_urls.each { |url| download_queue.send(url) }
-      download_queue.close
-    end
+    download_urls.each do |url|
+      wg.add
 
-    # Worker threads: Always `threads` running at the same time
-    threads.times do
+      # Ensure only `threads` concurrent downloads
+      loop do
+        break if active_downloads.get < threads
+        sleep 10.milliseconds
+      end
+
+      active_downloads.add(1)
+
       spawn do
-        loop do
-          url = download_queue.receive?
-          break unless url
+        begin
+          HTTP::Client.get(url) do |response|
+            loop do
+              bytes_read = response.body_io.read(buffer)
+              break if bytes_read == 0
 
-          semaphore.send(nil) # Limit concurrency
-          active_downloads.add(1)
-          puts "🟢 Starting download: #{url} | Active downloads: #{active_downloads.get}"
+              transferred_bytes.add(bytes_read)
 
-          begin
-            HTTP::Client.get(url) do |response|
-              loop do
-                bytes_read = response.body_io.read(buffer)
-                break if bytes_read == 0
-
-                transferred_bytes.add(bytes_read)
-
-                current_time = Time.monotonic
-                if current_time - progress_bar_last_update_time > 1.second
-                  # update_progress_bar(start_time, transferred_bytes.get, total_bytes)
-                  progress_bar_last_update_time = current_time
-                end
+              current_time = Time.monotonic
+              if current_time - progress_bar_last_update_time > 1.second
+                update_progress_bar(start_time, transferred_bytes.get, total_bytes)
+                progress_bar_last_update_time = current_time
               end
             end
-          rescue ex
-            puts "❌ Download failed: #{url} - #{ex.message}"
-          ensure
-            active_downloads.sub(1)
-            puts "🔴 Finished download: #{url} | Active downloads: #{active_downloads.get}"
-            # update_progress_bar(start_time, transferred_bytes.get, total_bytes)
-            semaphore.receive # Allow another download to start
-            completed.add(1)
           end
+        rescue ex
+          puts "❌ Download failed: #{url} - #{ex.message}"
+        ensure
+          active_downloads.sub(1)
         end
+      ensure
+        wg.done
+        update_progress_bar(start_time, transferred_bytes.get, total_bytes)
       end
     end
 
-    # Wait for all downloads to complete
-    loop do
-      sleep 100.milliseconds
-      break if completed.get >= download_urls.size
-    end
+    wg.wait
 
     puts "\n"
     end_time = Time.monotonic
