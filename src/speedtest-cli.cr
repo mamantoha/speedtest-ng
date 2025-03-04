@@ -2,6 +2,7 @@ require "http/client"
 require "xml"
 require "json"
 require "option_parser"
+require "wait_group"
 require "haversine"
 
 module Speedtest
@@ -105,7 +106,6 @@ module Speedtest
 
   def test_download_speed(host : String, config : Config, single_mode : Bool)
     download_sizes = [
-      30_000_000,
       25_000_000,
       15_000_000,
       10_000_000,
@@ -117,57 +117,47 @@ module Speedtest
     ]
 
     threads = single_mode ? 1 : config.download_threads
-
     total_bytes = (download_sizes.sum * threads).to_i64
-
     transferred_bytes = Atomic(Int64).new(0)
+
     start_time = Time.monotonic
-    progress_bar_last_update_time = start_time
 
     buffer_size = 4096
     buffer = Bytes.new(buffer_size)
 
     puts "⬇️ Testing download speed..."
 
-    download_sizes.each do |size|
-      url = "http://#{host}/download?size=#{size}"
+    download_urls = download_sizes.flat_map { |size| Array.new(threads, "http://#{host}/download?size=#{size}") }
+    download_urls.shuffle!
 
-      channel = Channel(Nil).new(threads)
+    active_workers = Atomic(Int32).new(0)
 
-      threads.times do
-        spawn do
+    WaitGroup.wait do |wait_group|
+      download_urls.each do |url|
+        # Ensure only `threads` concurrent downloads
+        while active_workers.get >= threads
+          sleep 10.milliseconds
+        end
+
+        active_workers.add(1)
+        wait_group.spawn do
           begin
             HTTP::Client.get(url) do |response|
               loop do
                 bytes_read = response.body_io.read(buffer)
 
-                break if bytes_read == 0
+                break if bytes_read.zero?
 
                 transferred_bytes.add(bytes_read)
-
-                current_time = Time.monotonic
-
-                # Stop the test if more than a minute have passed
-                if current_time - start_time > 1.minute
-                  channel.send(nil)
-                end
-
-                # Update progress bar every second
-                if current_time - progress_bar_last_update_time > 1.second
-                  update_progress_bar(start_time, transferred_bytes.get, total_bytes)
-                  progress_bar_last_update_time = current_time
-                end
               end
             end
           rescue
           ensure
             update_progress_bar(start_time, transferred_bytes.get, total_bytes)
-            channel.send(nil)
+            active_workers.sub(1)
           end
         end
       end
-
-      threads.times { channel.receive }
     end
 
     puts "\n"
