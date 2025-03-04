@@ -152,13 +152,6 @@ module Speedtest
                 break if bytes_read == 0
 
                 transferred_bytes.add(bytes_read)
-
-                current_time = Time.monotonic
-
-                if current_time - progress_bar_last_update_time > 1.second
-                  update_progress_bar(start_time, transferred_bytes.get, total_bytes)
-                  progress_bar_last_update_time = current_time
-                end
               end
             end
           rescue
