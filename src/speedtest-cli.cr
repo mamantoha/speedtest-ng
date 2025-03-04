@@ -170,7 +170,7 @@ module Speedtest
   def test_upload_speed(host : String, config : Config, single_mode : Bool)
     url = "http://#{host}/upload"
 
-    upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032].shuffle
+    upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032]
     threads = single_mode ? 1 : config.upload_threads
     total_bytes = upload_sizes.sum * threads
 
@@ -183,31 +183,31 @@ module Speedtest
     active_workers = Atomic(Int32).new(0)
     start_time = Time.monotonic
 
+    upload_sizes = (upload_sizes * threads).shuffle
+
     puts "⬆️ Testing upload speed..."
 
     WaitGroup.wait do |wg|
       upload_sizes.each do |size|
-        threads.times do
-          # Ensure only `threads` concurrent uploads
-          while active_workers.get >= threads
-            sleep 10.milliseconds
-          end
+        # Ensure only `threads` concurrent uploads
+        while active_workers.get >= threads
+          sleep 10.milliseconds
+        end
 
-          active_workers.add(1)
-          data = upload_data[size]
+        active_workers.add(1)
+        data = upload_data[size]
 
-          wg.spawn do
-            begin
-              response = HTTP::Client.post(url, body: data)
+        wg.spawn do
+          begin
+            response = HTTP::Client.post(url, body: data)
 
-              if response.success?
-                transferred_bytes.add(size)
-              end
-            rescue
-            ensure
-              active_workers.sub(1)
-              update_progress_bar(start_time, transferred_bytes.get, total_bytes)
+            if response.success?
+              transferred_bytes.add(size)
             end
+          rescue
+          ensure
+            active_workers.sub(1)
+            update_progress_bar(start_time, transferred_bytes.get, total_bytes)
           end
         end
       end
