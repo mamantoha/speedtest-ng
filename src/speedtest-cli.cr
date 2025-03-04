@@ -170,7 +170,7 @@ module Speedtest
   def test_upload_speed(host : String, config : Config, single_mode : Bool)
     url = "http://#{host}/upload"
 
-    upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032].reverse
+    upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032].shuffle
     threads = single_mode ? 1 : config.upload_threads
     total_bytes = upload_sizes.sum * threads
 
