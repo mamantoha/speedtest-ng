@@ -106,7 +106,6 @@ module Speedtest
 
   def test_download_speed(host : String, config : Config, single_mode : Bool)
     download_sizes = [
-      30_000_000,
       25_000_000,
       15_000_000,
       10_000_000,
@@ -148,7 +147,7 @@ module Speedtest
               loop do
                 bytes_read = response.body_io.read(buffer)
 
-                break if bytes_read == 0
+                break if bytes_read.zero?
 
                 transferred_bytes.add(bytes_read)
               end
