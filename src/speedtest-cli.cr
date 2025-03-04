@@ -130,11 +130,9 @@ module Speedtest
     download_urls = download_sizes.flat_map { |size| Array.new(threads, "http://#{host}/download?size=#{size}") }
     download_urls.shuffle!
 
-    total_downloads = download_urls.size
-
     active_workers = Atomic(Int32).new(0)
 
-    WaitGroup.wait do |wg|
+    WaitGroup.wait do |wait_group|
       download_urls.each do |url|
         # Ensure only `threads` concurrent downloads
         while active_workers.get >= threads
@@ -142,7 +140,7 @@ module Speedtest
         end
 
         active_workers.add(1)
-        wg.spawn do
+        wait_group.spawn do
           begin
             HTTP::Client.get(url) do |response|
               loop do
