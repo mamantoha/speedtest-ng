@@ -123,16 +123,21 @@ module Speedtest
 
     puts "⬇️ Testing download speed..."
 
-    # Queue to store all download tasks
-    download_queue = Channel(Int32).new
+    download_urls = Array(String).new
+    download_sizes.each do |size|
+      threads.times { download_urls << "http://#{host}/download?size=#{size}" }
+    end
+
+    download_urls.shuffle!
+
+    # Queue to store all download URLs
+    download_queue = Channel(String).new
     semaphore = Channel(Nil).new(threads) # Limit concurrency
     completed = Atomic(Int32).new(0)
 
-    # Producer: Fill the queue asynchronously
+    # Producer: Fill the queue asynchronously with URLs
     spawn do
-      download_sizes.each do |size|
-        threads.times { download_queue.send(size) } # Each size should be downloaded by `threads` times
-      end
+      download_urls.each { |url| download_queue.send(url) }
       download_queue.close
     end
 
@@ -140,16 +145,14 @@ module Speedtest
     threads.times do
       spawn do
         loop do
-          size = download_queue.receive?
-          break unless size
+          url = download_queue.receive?
+          break unless url
 
           semaphore.send(nil) # Limit concurrency
           active_downloads.add(1)
-          puts "🟢 Starting download of size #{size} | Active downloads: #{active_downloads.get}"
+          puts "🟢 Starting download: #{url} | Active downloads: #{active_downloads.get}"
 
           begin
-            url = "http://#{host}/download?size=#{size}"
-
             HTTP::Client.get(url) do |response|
               loop do
                 bytes_read = response.body_io.read(buffer)
@@ -158,19 +161,18 @@ module Speedtest
                 transferred_bytes.add(bytes_read)
 
                 current_time = Time.monotonic
-
                 if current_time - progress_bar_last_update_time > 1.second
-                  update_progress_bar(start_time, transferred_bytes.get, total_bytes)
+                  # update_progress_bar(start_time, transferred_bytes.get, total_bytes)
                   progress_bar_last_update_time = current_time
                 end
               end
             end
           rescue ex
-            puts "❌ Download failed for size #{size}: #{ex.message}"
+            puts "❌ Download failed: #{url} - #{ex.message}"
           ensure
             active_downloads.sub(1)
-            puts "🔴 Finished download of size #{size} | Active downloads: #{active_downloads.get}"
-            update_progress_bar(start_time, transferred_bytes.get, total_bytes)
+            puts "🔴 Finished download: #{url} | Active downloads: #{active_downloads.get}"
+            # update_progress_bar(start_time, transferred_bytes.get, total_bytes)
             semaphore.receive # Allow another download to start
             completed.add(1)
           end
@@ -181,7 +183,7 @@ module Speedtest
     # Wait for all downloads to complete
     loop do
       sleep 100.milliseconds
-      break if completed.get >= download_sizes.size * threads
+      break if completed.get >= download_urls.size
     end
 
     puts "\n"
