@@ -106,8 +106,15 @@ module Speedtest
 
   def test_download_speed(host : String, config : Config, single_mode : Bool)
     download_sizes = [
-      30_000_000, 25_000_000, 15_000_000, 10_000_000,
-      5_000_000, 2_000_000, 1_000_000, 500_000, 250_000,
+      30_000_000,
+      25_000_000,
+      15_000_000,
+      10_000_000,
+      5_000_000,
+      2_000_000,
+      1_000_000,
+      500_000,
+      250_000,
     ]
 
     threads = single_mode ? 1 : config.download_threads
@@ -122,53 +129,46 @@ module Speedtest
 
     puts "⬇️ Testing download speed..."
 
-    # Generate and shuffle download URLs
     download_urls = download_sizes.flat_map { |size| Array.new(threads, "http://#{host}/download?size=#{size}") }
     download_urls.shuffle!
 
-    wg = WaitGroup.new
-    active_downloads = Atomic(Int32).new(0) # Track active downloads
+    active_downloads = Atomic(Int32).new(0)
     total_downloads = download_urls.size
 
-    download_urls.each do |url|
-      wg.add
+    WaitGroup.wait do |wg|
+      download_urls.each do |url|
+        # Ensure only `threads` concurrent downloads
+        while active_downloads.get >= threads
+          sleep 10.milliseconds
+        end
 
-      # Ensure only `threads` concurrent downloads
-      loop do
-        break if active_downloads.get < threads
-        sleep 10.milliseconds
-      end
+        active_downloads.add(1)
+        wg.spawn do
+          begin
+            HTTP::Client.get(url) do |response|
+              loop do
+                bytes_read = response.body_io.read(buffer)
 
-      active_downloads.add(1)
+                break if bytes_read == 0
 
-      spawn do
-        begin
-          HTTP::Client.get(url) do |response|
-            loop do
-              bytes_read = response.body_io.read(buffer)
-              break if bytes_read == 0
+                transferred_bytes.add(bytes_read)
 
-              transferred_bytes.add(bytes_read)
+                current_time = Time.monotonic
 
-              current_time = Time.monotonic
-              if current_time - progress_bar_last_update_time > 1.second
-                update_progress_bar(start_time, transferred_bytes.get, total_bytes)
-                progress_bar_last_update_time = current_time
+                if current_time - progress_bar_last_update_time > 1.second
+                  update_progress_bar(start_time, transferred_bytes.get, total_bytes)
+                  progress_bar_last_update_time = current_time
+                end
               end
             end
+          rescue
+          ensure
+            active_downloads.sub(1)
+            update_progress_bar(start_time, transferred_bytes.get, total_bytes)
           end
-        rescue ex
-          puts "❌ Download failed: #{url} - #{ex.message}"
-        ensure
-          active_downloads.sub(1)
         end
-      ensure
-        wg.done
-        update_progress_bar(start_time, transferred_bytes.get, total_bytes)
       end
     end
-
-    wg.wait
 
     puts "\n"
     end_time = Time.monotonic
