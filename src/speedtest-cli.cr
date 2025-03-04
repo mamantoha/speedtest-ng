@@ -155,9 +155,8 @@ module Speedtest
           rescue
           ensure
             update_progress_bar(start_time, transferred_bytes.get, total_bytes)
+            active_downloads.sub(1)
           end
-        ensure
-          active_downloads.sub(1)
         end
       end
     end
