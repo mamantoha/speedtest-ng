@@ -119,6 +119,8 @@ module Speedtest
     buffer_size = 4096
     buffer = Bytes.new(buffer_size)
 
+    active_downloads = Atomic(Int32).new(0) # Track number of active downloads
+
     puts "⬇️ Testing download speed..."
 
     # Queue to store all download tasks
@@ -142,6 +144,8 @@ module Speedtest
           break unless size
 
           semaphore.send(nil) # Limit concurrency
+          active_downloads.add(1)
+          puts "🟢 Starting download of size #{size} | Active downloads: #{active_downloads.get}"
 
           begin
             url = "http://#{host}/download?size=#{size}"
@@ -149,7 +153,6 @@ module Speedtest
             HTTP::Client.get(url) do |response|
               loop do
                 bytes_read = response.body_io.read(buffer)
-
                 break if bytes_read == 0
 
                 transferred_bytes.add(bytes_read)
@@ -162,8 +165,11 @@ module Speedtest
                 end
               end
             end
-          rescue
+          rescue ex
+            puts "❌ Download failed for size #{size}: #{ex.message}"
           ensure
+            active_downloads.sub(1)
+            puts "🔴 Finished download of size #{size} | Active downloads: #{active_downloads.get}"
             update_progress_bar(start_time, transferred_bytes.get, total_bytes)
             semaphore.receive # Allow another download to start
             completed.add(1)
