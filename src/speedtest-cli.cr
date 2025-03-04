@@ -122,7 +122,6 @@ module Speedtest
     transferred_bytes = Atomic(Int64).new(0)
 
     start_time = Time.monotonic
-    progress_bar_last_update_time = start_time
 
     buffer_size = 4096
     buffer = Bytes.new(buffer_size)
