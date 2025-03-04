@@ -180,16 +180,23 @@ module Speedtest
     end
 
     transferred_bytes = Atomic(Int64).new(0)
+    active_workers = Atomic(Int32).new(0)
     start_time = Time.monotonic
 
     puts "⬆️ Testing upload speed..."
 
-    upload_sizes.each do |size|
-      data = upload_data[size]
-
-      WaitGroup.wait do |wait_group|
+    WaitGroup.wait do |wg|
+      upload_sizes.each do |size|
         threads.times do
-          wait_group.spawn do
+          # Ensure only `threads` concurrent uploads
+          while active_workers.get >= threads
+            sleep 10.milliseconds
+          end
+
+          active_workers.add(1)
+          data = upload_data[size]
+
+          wg.spawn do
             begin
               response = HTTP::Client.post(url, body: data)
 
@@ -198,6 +205,7 @@ module Speedtest
               end
             rescue
             ensure
+              active_workers.sub(1)
               update_progress_bar(start_time, transferred_bytes.get, total_bytes)
             end
           end
