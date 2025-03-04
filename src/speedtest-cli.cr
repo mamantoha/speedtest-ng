@@ -187,7 +187,7 @@ module Speedtest
     upload_sizes.each do |size|
       data = upload_data[size]
 
-      channel = Channel(Nil).new(threads)
+      wg = WaitGroup.new(threads)
 
       threads.times do
         spawn do
@@ -200,12 +200,13 @@ module Speedtest
           rescue
           ensure
             update_progress_bar(start_time, transferred_bytes.get, total_bytes)
-            channel.send(nil)
           end
+        ensure
+          wg.done
         end
       end
 
-      threads.times { channel.receive }
+      wg.wait
     end
 
     puts "\n"
