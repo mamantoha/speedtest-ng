@@ -20,10 +20,6 @@ website: https://github.com/mamantoha/speedtest-ng
 issues: https://github.com/mamantoha/speedtest-ng/issues
 source-code: https://github.com/mamantoha/speedtest-ng.git
 
-layout:
-  /usr/include/linux/input-event-codes.h:
-    bind-file: $SNAP/usr/include/linux/input-event-codes.h
-
 apps:
   speedtest-ng:
     command: bin/speedtest-ng
