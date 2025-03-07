@@ -43,6 +43,8 @@ Usage: speedtest-ng [options]
     -h, --help                       Show this help message and exit
 ```
 
+![screenshot](screenshot.png)
+
 ## Contributing
 
 1. Fork it (<https://github.com/mamantoha/speedtest-ng/fork>)
