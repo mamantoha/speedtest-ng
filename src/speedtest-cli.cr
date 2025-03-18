@@ -80,14 +80,14 @@ module Speedtest
     Servers.from_json(response.body)
   end
 
-  def fetch_best_server(servers) : {Server, Float64}
+  def fetch_best_server(servers : Array(Server), secure : Bool) : {Server, Float64}
     puts "🎯 Selecting the best server based on ping..."
 
     best_server = nil
     best_latency = Float64::INFINITY
 
     servers.each do |server|
-      avg_latency = get_server_latency(server)
+      avg_latency = get_server_latency(server, secure)
 
       next unless avg_latency
 
@@ -105,7 +105,7 @@ module Speedtest
     {best_server, best_latency}
   end
 
-  def test_download_speed(host : String, config : Config, single_mode : Bool)
+  def test_download_speed(host : String, config : Config, single_mode : Bool, secure : Bool)
     download_sizes = [
       25_000_000,
       15_000_000,
@@ -128,7 +128,8 @@ module Speedtest
 
     puts "⬇️ Testing download speed..."
 
-    download_urls = download_sizes.flat_map { |size| Array.new(threads, "http://#{host}/download?size=#{size}") }
+    scheme = secure ? "https" : "http"
+    download_urls = download_sizes.flat_map { |size| Array.new(threads, "#{scheme}://#{host}/download?size=#{size}") }
     download_urls.shuffle!
 
     active_workers = Atomic(Int32).new(0)
@@ -168,8 +169,9 @@ module Speedtest
     puts "🔽 Download: #{speed_in_mbps(transferred_bytes.get, total_time)} (#{transferred_bytes.get.humanize_bytes} in #{total_time.seconds} seconds)"
   end
 
-  def test_upload_speed(host : String, config : Config, single_mode : Bool)
-    url = "http://#{host}/upload"
+  def test_upload_speed(host : String, config : Config, single_mode : Bool, secure : Bool)
+    scheme = secure ? "https" : "http"
+    url = "#{scheme}://#{host}/upload"
 
     upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032]
     threads = single_mode ? 1 : config.upload_threads
@@ -255,7 +257,7 @@ module Speedtest
     end
   end
 
-  def hosted_server_info(server : Server, config : Config, latency : Float64? = nil) : String
+  def hosted_server_info(server : Server, config : Config, *, latency : Float64? = nil, secure : Bool = false) : String
     flag = country_flag(server.cc)
 
     client_lat = config.client[:lat]
@@ -266,7 +268,7 @@ module Speedtest
     result = "📍 Hosted by #{server.sponsor} (#{server.name}, #{flag} #{server.country}) [#{distance.to_kilometers.round(2)} km]"
 
     unless latency
-      latency = get_server_latency(server)
+      latency = get_server_latency(server, secure)
     end
 
     if latency
@@ -287,11 +289,12 @@ module Speedtest
     end
   end
 
-  private def get_server_latency(server) : Float64?
+  private def get_server_latency(server : Server, secure : Bool) : Float64?
     latencies = [] of Float64
 
     begin
-      http_client = HTTP::Client.new(URI.parse("http://#{server.host}"))
+      scheme = secure ? "https" : "http"
+      http_client = HTTP::Client.new(URI.parse("#{scheme}://#{server.host}"))
       http_client.connect_timeout = 1.seconds
 
       3.times do
@@ -353,6 +356,7 @@ module Speedtest
       single_mode = false
       list_servers_only = false
       server_id = nil
+      secure = false
 
       OptionParser.parse do |parser|
         parser.banner = "Usage: #{NAME} [options]"
@@ -362,6 +366,8 @@ module Speedtest
         parser.on("--single", "Only use a single connection (simulates file transfer)") { single_mode = true }
         parser.on("--list", "Display a list of speedtest.net servers sorted by distance") { list_servers_only = true }
         parser.on("--server SERVER", "Specify a server ID to test against") { |id| server_id = id }
+        parser.on("--secure", "Use HTTPS instead of HTTP when communicating with speedtest.net operated servers") { secure = true }
+
         parser.on("--version", "Show the version number and exit") do
           puts "#{NAME} #{VERSION} (#{BUILD_DATE})"
           puts
@@ -401,19 +407,19 @@ module Speedtest
             exit(1)
           end
 
-          puts Speedtest.hosted_server_info(server, config)
+          puts Speedtest.hosted_server_info(server, config, secure: secure)
 
           server
         else
-          server, latency = Speedtest.fetch_best_server(servers)
+          server, latency = Speedtest.fetch_best_server(servers, secure)
 
-          puts Speedtest.hosted_server_info(server, config, latency)
+          puts Speedtest.hosted_server_info(server, config, latency: latency, secure: secure)
 
           server
         end
 
-      Speedtest.test_download_speed(selected_server.host, config, single_mode) unless no_download
-      Speedtest.test_upload_speed(selected_server.host, config, single_mode) unless no_upload
+      Speedtest.test_download_speed(selected_server.host, config, single_mode, secure) unless no_download
+      Speedtest.test_upload_speed(selected_server.host, config, single_mode, secure) unless no_upload
     end
   end
 end
