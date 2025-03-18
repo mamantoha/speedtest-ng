@@ -39,6 +39,7 @@ Usage: speedtest-ng [options]
     --single                         Only use a single connection (simulates file transfer)
     --list                           Display a list of speedtest.net servers sorted by distance
     --server SERVER                  Specify a server ID to test against
+    --secure                         Use HTTPS instead of HTTP when communicating with speedtest.net operated servers
     --version                        Show the version number and exit
     -h, --help                       Show this help message and exit
 ```
