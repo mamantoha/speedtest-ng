@@ -3,6 +3,7 @@ require "xml"
 require "json"
 require "option_parser"
 require "wait_group"
+require "upload_io"
 require "haversine"
 
 module Speedtest
@@ -185,6 +186,10 @@ module Speedtest
 
     upload_sizes = (upload_sizes * threads).shuffle
 
+    progress_tracker = ->(uploaded_chunk : Int32) do
+      transferred_bytes.add(uploaded_chunk)
+    end
+
     puts "⬆️ Testing upload speed..."
 
     WaitGroup.wait do |wg|
@@ -195,15 +200,17 @@ module Speedtest
         end
 
         active_workers.add(1)
-        data = upload_data[size]
+
+        upload_io = UploadIO.new(upload_data[size], 4096, progress_tracker)
+
+        headers = HTTP::Headers{
+          "Content-Type"   => "application/octet-stream",
+          "Content-Length" => size.to_s,
+        }
 
         wg.spawn do
           begin
-            response = HTTP::Client.post(url, body: data)
-
-            if response.success?
-              transferred_bytes.add(size)
-            end
+            HTTP::Client.post(url, headers: headers, body: upload_io)
           rescue
           ensure
             active_workers.sub(1)

@@ -4,3 +4,7 @@ shards:
     git: https://github.com/geocrystal/haversine.git
     version: 0.5.0
 
+  upload_io:
+    git: https://github.com/mamantoha/upload_io.git
+    version: 0.2.0
+

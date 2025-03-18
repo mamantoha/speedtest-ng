@@ -5,6 +5,8 @@ authors:
   - Anton Maminov <anton.maminov@gmail.com>
 
 dependencies:
+  upload_io:
+    github: mamantoha/upload_io
   haversine:
     github: geocrystal/haversine
 
