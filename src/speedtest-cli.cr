@@ -198,8 +198,8 @@ module Speedtest
       hash
     end
 
-    progress_tracker = ->(uploaded_chunk : Int32) do
-      transferred_bytes.add(uploaded_chunk)
+    progress_tracker = ->(bytes_read : Int32) do
+      transferred_bytes.add(bytes_read)
     end
 
     upload_sizes = (upload_sizes * threads).shuffle
