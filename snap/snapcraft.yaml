@@ -1,6 +1,6 @@
 name: speedtest-ng
 base: core20
-version: '0.6.2'
+version: '0.6.3'
 summary: A command-line tool for testing internet speed using Speedtest.net
 description: |
   A command-line tool for testing internet speed using Speedtest.net, written in Crystal.
