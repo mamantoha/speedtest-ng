@@ -9,6 +9,8 @@ dependencies:
     github: mamantoha/upload_io
   haversine:
     github: geocrystal/haversine
+  tablo:
+    github: hutou/tablo
 
 targets:
   speedtest-ng:

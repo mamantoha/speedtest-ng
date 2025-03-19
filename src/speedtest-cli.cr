@@ -5,6 +5,7 @@ require "option_parser"
 require "wait_group"
 require "upload_io"
 require "haversine"
+require "tablo"
 
 module Speedtest
   extend self
@@ -243,18 +244,27 @@ module Speedtest
 
     server_distances.sort_by!(&.[:distance])
 
-    server_distances.each do |entry|
+    data = server_distances.map do |entry|
       server = entry[:server]
       distance_km = entry[:distance].to_kilometers.round(2)
       flag = country_flag(server.cc)
 
-      printf(
-        "  %-8s %s [%s km]\n",
-        server.id,
+      [
+        server.id.to_s,
         "#{server.sponsor} (#{server.name}, #{flag} #{server.country})",
-        distance_km
-      )
+        "#{distance_km} km",
+      ]
     end
+
+    name_width = data.max_of(&.[1].size)
+
+    table = Tablo::Table.new(data) do |t|
+      t.add_column("ID", &.[0])
+      t.add_column("Server", width: name_width, &.[1])
+      t.add_column("Distance", &.[2])
+    end
+
+    puts table
   end
 
   def hosted_server_info(server : Server, config : Config, *, latency : Float64? = nil, secure : Bool = false) : String
