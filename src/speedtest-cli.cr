@@ -107,6 +107,8 @@ module Speedtest
   end
 
   def test_download_speed(host : String, config : Config, single_mode : Bool, secure : Bool)
+    scheme = secure ? "https" : "http"
+
     download_sizes = [
       25_000_000,
       15_000_000,
@@ -122,18 +124,17 @@ module Speedtest
     total_bytes = (download_sizes.sum * threads).to_i64
     transferred_bytes = Atomic(Int64).new(0)
 
-    start_time = Time.monotonic
-
     buffer_size = 4096
     buffer = Bytes.new(buffer_size)
 
-    puts "⬇️ Testing download speed..."
-
-    scheme = secure ? "https" : "http"
     download_urls = download_sizes.flat_map { |size| Array.new(threads, "#{scheme}://#{host}/download?size=#{size}") }
     download_urls.shuffle!
 
     active_workers = Atomic(Int32).new(0)
+
+    start_time = Time.monotonic
+
+    puts "⬇️ Testing download speed..."
 
     WaitGroup.wait do |wg|
       download_urls.each do |url|
@@ -143,6 +144,7 @@ module Speedtest
         end
 
         active_workers.add(1)
+
         wg.spawn do
           begin
             HTTP::Client.get(url) do |response|
@@ -156,8 +158,8 @@ module Speedtest
             end
           rescue
           ensure
-            update_progress_bar(start_time, transferred_bytes.get, total_bytes)
             active_workers.sub(1)
+            update_progress_bar(start_time, transferred_bytes.get, total_bytes)
           end
         end
       end
@@ -172,26 +174,39 @@ module Speedtest
 
   def test_upload_speed(host : String, config : Config, single_mode : Bool, secure : Bool)
     scheme = secure ? "https" : "http"
+
     url = "#{scheme}://#{host}/upload"
 
-    upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576, 7340032]
+    upload_sizes = [
+      32768,
+      65536,
+      131072,
+      262144,
+      524288,
+      1048576,
+      7340032,
+    ]
+
     threads = single_mode ? 1 : config.upload_threads
-    total_bytes = upload_sizes.sum * threads
+    total_bytes = (upload_sizes.sum * threads).to_i64
+    transferred_bytes = Atomic(Int64).new(0)
+
+    buffer_size = 4096
 
     upload_data = upload_sizes.reduce({} of Int32 => Bytes) do |hash, size|
       hash[size] = Random::Secure.random_bytes(size)
       hash
     end
 
-    transferred_bytes = Atomic(Int64).new(0)
-    active_workers = Atomic(Int32).new(0)
-    start_time = Time.monotonic
-
-    upload_sizes = (upload_sizes * threads).shuffle
-
     progress_tracker = ->(uploaded_chunk : Int32) do
       transferred_bytes.add(uploaded_chunk)
     end
+
+    upload_sizes = (upload_sizes * threads).shuffle
+
+    active_workers = Atomic(Int32).new(0)
+
+    start_time = Time.monotonic
 
     puts "⬆️ Testing upload speed..."
 
@@ -204,15 +219,15 @@ module Speedtest
 
         active_workers.add(1)
 
-        upload_io = UploadIO.new(upload_data[size], 4096, progress_tracker)
-
-        headers = HTTP::Headers{
-          "Content-Type"   => "application/octet-stream",
-          "Content-Length" => size.to_s,
-        }
-
         wg.spawn do
           begin
+            upload_io = UploadIO.new(upload_data[size], buffer_size, progress_tracker)
+
+            headers = HTTP::Headers{
+              "Content-Type"   => "application/octet-stream",
+              "Content-Length" => size.to_s,
+            }
+
             HTTP::Client.post(url, headers: headers, body: upload_io)
           rescue
           ensure
