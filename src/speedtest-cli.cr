@@ -131,8 +131,19 @@ module Speedtest
     download_urls.shuffle!
 
     active_workers = Atomic(Int32).new(0)
-
     start_time = Time.monotonic
+    done = Channel(Nil).new
+
+    spawn do
+      loop do
+        select
+        when done.receive?
+          break
+        when timeout(1.second)
+          update_progress_bar(start_time, transferred_bytes.get, total_bytes)
+        end
+      end
+    end
 
     puts "⬇️ Testing download speed..."
 
@@ -159,11 +170,13 @@ module Speedtest
           rescue
           ensure
             active_workers.sub(1)
-            update_progress_bar(start_time, transferred_bytes.get, total_bytes)
           end
         end
       end
     end
+
+    done.send(nil)
+    update_progress_bar(start_time, transferred_bytes.get, total_bytes)
 
     puts "\n"
     end_time = Time.monotonic
@@ -205,8 +218,19 @@ module Speedtest
     upload_sizes = (upload_sizes * threads).shuffle
 
     active_workers = Atomic(Int32).new(0)
-
     start_time = Time.monotonic
+    done = Channel(Nil).new
+
+    spawn do
+      loop do
+        select
+        when done.receive?
+          break
+        when timeout(1.second)
+          update_progress_bar(start_time, transferred_bytes.get, total_bytes)
+        end
+      end
+    end
 
     puts "⬆️ Testing upload speed..."
 
@@ -232,11 +256,13 @@ module Speedtest
           rescue
           ensure
             active_workers.sub(1)
-            update_progress_bar(start_time, transferred_bytes.get, total_bytes)
           end
         end
       end
     end
+
+    done.send(nil)
+    update_progress_bar(start_time, transferred_bytes.get, total_bytes)
 
     puts "\n"
     end_time = Time.monotonic
