@@ -256,7 +256,7 @@ module Speedtest
       ]
     end
 
-    name_width = data.map(&.[1].size).max
+    name_width = data.max_of(&.[1].size)
 
     table = Tablo::Table.new(data) do |t|
       t.add_column("ID", &.[0])
