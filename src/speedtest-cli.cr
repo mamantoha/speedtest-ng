@@ -130,8 +130,8 @@ module Speedtest
     download_queue = Channel(String).new
 
     spawn do
-      download_sizes.each do |size|
-        threads.times { download_queue.send("#{scheme}://#{host}/download?size=#{size}") }
+      (download_sizes * threads).shuffle.each do |size|
+        download_queue.send("#{scheme}://#{host}/download?size=#{size}")
       end
 
       download_queue.close
