@@ -127,10 +127,16 @@ module Speedtest
     buffer_size = 4096
     buffer = Bytes.new(buffer_size)
 
-    download_urls = download_sizes.flat_map { |size| Array.new(threads, "#{scheme}://#{host}/download?size=#{size}") }
-    download_urls.shuffle!
+    download_queue = Channel(String).new
 
-    active_workers = Atomic(Int32).new(0)
+    spawn do
+      download_sizes.each do |size|
+        threads.times { download_queue.send("#{scheme}://#{host}/download?size=#{size}") }
+      end
+
+      download_queue.close
+    end
+
     start_time = Time.monotonic
     done = Channel(Nil).new
 
@@ -148,28 +154,21 @@ module Speedtest
     puts "⬇️ Testing download speed..."
 
     WaitGroup.wait do |wg|
-      download_urls.each do |url|
-        # Ensure only `threads` concurrent downloads
-        while active_workers.get >= threads
-          sleep 10.milliseconds
-        end
-
-        active_workers.add(1)
-
+      threads.times do
         wg.spawn do
-          begin
-            HTTP::Client.get(url) do |response|
-              loop do
-                bytes_read = response.body_io.read(buffer)
+          while url = download_queue.receive?
+            begin
+              HTTP::Client.get(url) do |response|
+                loop do
+                  bytes_read = response.body_io.read(buffer)
 
-                break if bytes_read.zero?
+                  break if bytes_read.zero?
 
-                transferred_bytes.add(bytes_read)
+                  transferred_bytes.add(bytes_read)
+                end
               end
+            rescue
             end
-          rescue
-          ensure
-            active_workers.sub(1)
           end
         end
       end
@@ -179,8 +178,7 @@ module Speedtest
     update_progress_bar(start_time, transferred_bytes.get, total_bytes)
 
     puts "\n"
-    end_time = Time.monotonic
-    total_time = end_time - start_time
+    total_time = Time.monotonic - start_time
 
     puts "🔽 Download: #{speed_in_mbps(transferred_bytes.get, total_time)} (#{transferred_bytes.get.humanize_bytes} in #{total_time.seconds} seconds)"
   end
