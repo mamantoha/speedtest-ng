@@ -32,3 +32,4 @@ parts:
     source: ./
     crystal-build-options:
     - -Dpreview_mt
+    - --skip-postinstall
