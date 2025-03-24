@@ -213,9 +213,14 @@ module Speedtest
       transferred_bytes.add(bytes_read)
     end
 
-    upload_sizes = (upload_sizes * threads).shuffle
+    upload_queue = Channel(Int32).new
 
-    active_workers = Atomic(Int32).new(0)
+    spawn do
+      (upload_sizes * threads).shuffle.each { |size| upload_queue.send(size) }
+
+      upload_queue.close
+    end
+
     start_time = Time.monotonic
     done = Channel(Nil).new
 
@@ -233,27 +238,20 @@ module Speedtest
     puts "⬆️ Testing upload speed..."
 
     WaitGroup.wait do |wg|
-      upload_sizes.each do |size|
-        # Ensure only `threads` concurrent uploads
-        while active_workers.get >= threads
-          sleep 10.milliseconds
-        end
-
-        active_workers.add(1)
-
+      threads.times do
         wg.spawn do
-          begin
-            upload_io = UploadIO.new(upload_data[size], buffer_size, progress_tracker)
+          while size = upload_queue.receive?
+            begin
+              upload_io = UploadIO.new(upload_data[size], buffer_size, progress_tracker)
 
-            headers = HTTP::Headers{
-              "Content-Type"   => "application/octet-stream",
-              "Content-Length" => size.to_s,
-            }
+              headers = HTTP::Headers{
+                "Content-Type"   => "application/octet-stream",
+                "Content-Length" => size.to_s,
+              }
 
-            HTTP::Client.post(url, headers: headers, body: upload_io)
-          rescue
-          ensure
-            active_workers.sub(1)
+              HTTP::Client.post(url, headers: headers, body: upload_io)
+            rescue
+            end
           end
         end
       end
@@ -263,8 +261,7 @@ module Speedtest
     update_progress_bar(start_time, transferred_bytes.get, total_bytes)
 
     puts "\n"
-    end_time = Time.monotonic
-    total_time = end_time - start_time
+    total_time = Time.monotonic - start_time
 
     puts "🔼 Upload: #{speed_in_mbps(transferred_bytes.get, total_time)} (#{transferred_bytes.get.humanize_bytes} in #{total_time.seconds} seconds)"
   end
