@@ -6,7 +6,7 @@ shards:
 
   tablo:
     git: https://github.com/hutou/tablo.git
-    version: 1.0.0
+    version: 1.0.1
 
   textseg:
     git: https://github.com/naqvis/uni_text_seg.git
