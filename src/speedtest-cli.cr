@@ -208,6 +208,8 @@ module Speedtest
 
     buffer_size = 4096
 
+    time_limit = 20.seconds
+
     upload_data = upload_sizes.reduce({} of Int32 => Bytes) do |hash, size|
       hash[size] = Random::Secure.random_bytes(size)
       hash
@@ -245,6 +247,7 @@ module Speedtest
       threads.times do
         wg.spawn do
           while size = upload_queue.receive?
+            break if (Time.monotonic - start_time) > time_limit
             begin
               upload_io = UploadIO.new(upload_data[size], buffer_size, progress_tracker)
 
@@ -262,7 +265,7 @@ module Speedtest
     end
 
     done.send(nil)
-    update_progress_bar(start_time, transferred_bytes.get, total_bytes)
+    update_progress_bar(start_time, transferred_bytes.get, transferred_bytes.get)
 
     puts "\n"
     total_time = Time.monotonic - start_time
