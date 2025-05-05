@@ -163,7 +163,7 @@ module Speedtest
         when timeout(1.second)
           elapsed = Time.monotonic - start_time
           # speed_mutex.synchronize do
-            current_speed = (transferred_bytes.get * 8) / (elapsed.total_seconds * 1_000_000.0)
+          current_speed = (transferred_bytes.get * 8) / (elapsed.total_seconds * 1_000_000.0)
           # end
           update_progress_bar(start_time, transferred_bytes.get, total_bytes)
         end
