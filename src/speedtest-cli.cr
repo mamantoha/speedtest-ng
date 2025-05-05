@@ -128,6 +128,7 @@ module Speedtest
     buffer = Bytes.new(buffer_size)
 
     download_queue = Channel(String).new
+    time_limit = 20.seconds
 
     spawn do
       (download_sizes * threads).shuffle.each do |size|
@@ -157,9 +158,12 @@ module Speedtest
       threads.times do
         wg.spawn do
           while url = download_queue.receive?
+            break if (Time.monotonic - start_time) > time_limit
             begin
               HTTP::Client.get(url) do |response|
                 loop do
+                  break if (Time.monotonic - start_time) > time_limit
+
                   bytes_read = response.body_io.read(buffer)
 
                   break if bytes_read.zero?
@@ -175,7 +179,7 @@ module Speedtest
     end
 
     done.send(nil)
-    update_progress_bar(start_time, transferred_bytes.get, total_bytes)
+    update_progress_bar(start_time, transferred_bytes.get, transferred_bytes.get)
 
     puts "\n"
     total_time = Time.monotonic - start_time
