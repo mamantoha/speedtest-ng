@@ -133,8 +133,15 @@ module Speedtest
 
     spawn do
       download_sizes.each do |size|
-        if current_speed < 100.0 && size == 25_000_000
-          next
+        case size
+        when 25_000_000
+          next if current_speed < 100.0
+        when 15_000_000
+          next if current_speed < 50.0
+        when 10_000_000
+          next if current_speed < 25.0
+        when 5_000_000
+          next if current_speed < 10.0
         end
 
         threads.times do
