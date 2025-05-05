@@ -135,13 +135,13 @@ module Speedtest
       download_sizes.each do |size|
         case size
         when 25_000_000
-          next if current_speed < 100.0
-        when 15_000_000
           next if current_speed < 50.0
+        when 15_000_000
+          next if current_speed < 20.0
         when 10_000_000
-          next if current_speed < 25.0
-        when 5_000_000
           next if current_speed < 10.0
+        when 5_000_000
+          next if current_speed < 5.0
         end
 
         threads.times do
@@ -162,9 +162,9 @@ module Speedtest
           break
         when timeout(1.second)
           elapsed = Time.monotonic - start_time
-          speed_mutex.synchronize do
+          # speed_mutex.synchronize do
             current_speed = (transferred_bytes.get * 8) / (elapsed.total_seconds * 1_000_000.0)
-          end
+          # end
           update_progress_bar(start_time, transferred_bytes.get, total_bytes)
         end
       end
