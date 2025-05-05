@@ -220,6 +220,8 @@ module Speedtest
     threads = single_mode ? 1 : config.upload_threads
     total_bytes = (upload_sizes.sum * threads).to_i64
     transferred_bytes = Atomic(Int64).new(0)
+    current_speed = 0.0
+    speed_mutex = Mutex.new
 
     buffer_size = 4096
 
@@ -235,7 +237,18 @@ module Speedtest
     upload_queue = Channel(Int32).new
 
     spawn do
-      (upload_sizes * threads).shuffle.each { |size| upload_queue.send(size) }
+      upload_sizes.each do |size|
+        case size
+        when 7_340_032
+          next if current_speed < 5.0
+        when 1_048_576
+          next if current_speed < 1.0
+        end
+
+        threads.times do
+          upload_queue.send(size)
+        end
+      end
 
       upload_queue.close
     end
@@ -249,6 +262,10 @@ module Speedtest
         when done.receive?
           break
         when timeout(1.second)
+          elapsed = Time.monotonic - start_time
+          speed_mutex.synchronize do
+            current_speed = (transferred_bytes.get * 8) / (elapsed.total_seconds * 1_000_000.0)
+          end
           update_progress_bar(start_time, transferred_bytes.get, total_bytes)
         end
       end
