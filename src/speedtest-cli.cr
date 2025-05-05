@@ -110,19 +110,21 @@ module Speedtest
     scheme = secure ? "https" : "http"
 
     download_sizes = [
-      25_000_000,
-      15_000_000,
-      10_000_000,
-      5_000_000,
-      2_000_000,
-      1_000_000,
-      500_000,
-      250_000,
+      250_000,    # 250KB
+      500_000,    # 500KB
+      1_000_000,  # 1MB
+      2_000_000,  # 2MB
+      5_000_000,  # 5MB
+      10_000_000, # 10MB
+      15_000_000, # 15MB
+      25_000_000, # 25MB
     ]
 
     threads = single_mode ? 1 : config.download_threads
     total_bytes = (download_sizes.sum * threads).to_i64
     transferred_bytes = Atomic(Int64).new(0)
+    current_speed = 0.0
+    speed_mutex = Mutex.new
 
     buffer_size = 4096
     buffer = Bytes.new(buffer_size)
@@ -130,8 +132,14 @@ module Speedtest
     download_queue = Channel(String).new
 
     spawn do
-      (download_sizes * threads).shuffle.each do |size|
-        download_queue.send("#{scheme}://#{host}/download?size=#{size}")
+      download_sizes.each do |size|
+        if current_speed < 100.0 && size == 25_000_000
+          next
+        end
+
+        threads.times do
+          download_queue.send("#{scheme}://#{host}/download?size=#{size}")
+        end
       end
 
       download_queue.close
@@ -146,6 +154,10 @@ module Speedtest
         when done.receive?
           break
         when timeout(1.second)
+          elapsed = Time.monotonic - start_time
+          speed_mutex.synchronize do
+            current_speed = (transferred_bytes.get * 8) / (elapsed.total_seconds * 1_000_000.0)
+          end
           update_progress_bar(start_time, transferred_bytes.get, total_bytes)
         end
       end
@@ -175,7 +187,7 @@ module Speedtest
     end
 
     done.send(nil)
-    update_progress_bar(start_time, transferred_bytes.get, total_bytes)
+    update_progress_bar(start_time, transferred_bytes.get, transferred_bytes.get)
 
     puts "\n"
     total_time = Time.monotonic - start_time
