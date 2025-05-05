@@ -294,7 +294,7 @@ module Speedtest
     end
 
     done.send(nil)
-    update_progress_bar(start_time, transferred_bytes.get, total_bytes)
+    update_progress_bar(start_time, transferred_bytes.get, transferred_bytes.get)
 
     puts "\n"
     total_time = Time.monotonic - start_time
