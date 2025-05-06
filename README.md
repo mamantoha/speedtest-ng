@@ -9,6 +9,7 @@ A command-line tool for testing internet speed using Speedtest.net, written in C
 [![GitHub release](https://img.shields.io/github/release/mamantoha/speedtest-ng.svg)](https://github.com/mamantoha/speedtest-ng/releases)
 [![speedtest-ng](https://snapcraft.io/speedtest-ng/badge.svg)](https://snapcraft.io/speedtest-ng)
 [![License](https://img.shields.io/github/license/mamantoha/speedtest-ng.svg)](https://github.com/mamantoha/speedtest-ng/blob/master/LICENSE)
+</div>
 
 ## Installation
 
