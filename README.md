@@ -2,7 +2,7 @@
 <img src="assets/favicon.png" width="128" height="128" />
 <h1>speedtest-ng</h1>
 <h3>
-A command-line tool for testing internet speed using Speedtest.net, written in Crystal.
+A command-line tool for testing internet speed using Speedtest.net.
 </h3>
 
 [![Crystal CI](https://github.com/mamantoha/speedtest-ng/actions/workflows/crystal.yml/badge.svg)](https://github.com/mamantoha/speedtest-ng/actions/workflows/crystal.yml)
