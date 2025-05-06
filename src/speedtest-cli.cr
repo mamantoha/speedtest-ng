@@ -249,7 +249,12 @@ module Speedtest
           while size = upload_queue.receive?
             break if (Time.monotonic - start_time) > time_limit
             begin
-              upload_io = UploadIO.new(upload_data[size], buffer_size, progress_tracker)
+              upload_io = UploadIO.new(
+                upload_data[size],
+                buffer_size,
+                progress_tracker,
+                ->{ (Time.monotonic - start_time) > time_limit }
+              )
 
               headers = HTTP::Headers{
                 "Content-Type"   => "application/octet-stream",
