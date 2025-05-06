@@ -106,7 +106,13 @@ module Speedtest
     {best_server, best_latency}
   end
 
-  def test_download_speed(host : String, config : Config, single_mode : Bool, secure : Bool)
+  def test_download_speed(
+    host : String,
+    config : Config,
+    single_mode : Bool,
+    secure : Bool,
+    time_limit : Time::Span = 20.seconds,
+  )
     scheme = secure ? "https" : "http"
 
     download_sizes = [
@@ -128,7 +134,6 @@ module Speedtest
     buffer = Bytes.new(buffer_size)
 
     download_queue = Channel(String).new
-    time_limit = 20.seconds
 
     spawn do
       (download_sizes * threads).shuffle.each do |size|
@@ -187,7 +192,13 @@ module Speedtest
     puts "🔽 Download: #{speed_in_mbps(transferred_bytes.get, total_time)} (#{transferred_bytes.get.humanize_bytes} in #{total_time.seconds} seconds)"
   end
 
-  def test_upload_speed(host : String, config : Config, single_mode : Bool, secure : Bool)
+  def test_upload_speed(
+    host : String,
+    config : Config,
+    single_mode : Bool,
+    secure : Bool,
+    time_limit : Time::Span = 20.seconds,
+  )
     scheme = secure ? "https" : "http"
 
     url = "#{scheme}://#{host}/upload"
@@ -207,8 +218,6 @@ module Speedtest
     transferred_bytes = Atomic(Int64).new(0)
 
     buffer_size = 4096
-
-    time_limit = 20.seconds
 
     upload_data = upload_sizes.reduce({} of Int32 => Bytes) do |hash, size|
       hash[size] = Random::Secure.random_bytes(size)
@@ -415,16 +424,43 @@ module Speedtest
       list_servers_only = false
       server_id = nil
       secure = false
+      download_time_limit = 20.seconds
+      upload_time_limit = 20.seconds
 
       OptionParser.parse do |parser|
         parser.banner = "Usage: #{NAME} [options]"
 
-        parser.on("--no-download", "Do not perform download test") { no_download = true }
-        parser.on("--no-upload", "Do not perform upload test") { no_upload = true }
-        parser.on("--single", "Only use a single connection (simulates file transfer)") { single_mode = true }
-        parser.on("--list", "Display a list of speedtest.net servers sorted by distance") { list_servers_only = true }
-        parser.on("--server SERVER", "Specify a server ID to test against") { |id| server_id = id }
-        parser.on("--secure", "Use HTTPS instead of HTTP when communicating with speedtest.net operated servers") { secure = true }
+        parser.on("--no-download", "Do not perform download test") do
+          no_download = true
+        end
+
+        parser.on("--no-upload", "Do not perform upload test") do
+          no_upload = true
+        end
+
+        parser.on("--single", "Only use a single connection (simulates file transfer)") do
+          single_mode = true
+        end
+
+        parser.on("--list", "Display a list of speedtest.net servers sorted by distance") do
+          list_servers_only = true
+        end
+
+        parser.on("--server SERVER", "Specify a server ID to test against") do |id|
+          server_id = id
+        end
+
+        parser.on("--secure", "Use HTTPS instead of HTTP when communicating with speedtest.net operated servers") do
+          secure = true
+        end
+
+        parser.on("--download-time SECONDS", "Set download test time limit in seconds (default: 20)") do |seconds|
+          download_time_limit = seconds.to_i.seconds
+        end
+
+        parser.on("--upload-time SECONDS", "Set upload test time limit in seconds (default: 20)") do |seconds|
+          upload_time_limit = seconds.to_i.seconds
+        end
 
         parser.on("--version", "Show the version number and exit") do
           puts "#{NAME} #{VERSION} (#{BUILD_DATE})"
@@ -476,8 +512,21 @@ module Speedtest
           server
         end
 
-      Speedtest.test_download_speed(selected_server.host, config, single_mode, secure) unless no_download
-      Speedtest.test_upload_speed(selected_server.host, config, single_mode, secure) unless no_upload
+      Speedtest.test_download_speed(
+        selected_server.host,
+        config,
+        single_mode,
+        secure,
+        download_time_limit
+      ) unless no_download
+
+      Speedtest.test_upload_speed(
+        selected_server.host,
+        config,
+        single_mode,
+        secure,
+        upload_time_limit
+      ) unless no_upload
     end
   end
 end
