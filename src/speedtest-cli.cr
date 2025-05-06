@@ -253,7 +253,7 @@ module Speedtest
                 upload_data[size],
                 buffer_size,
                 progress_tracker,
-                ->{ (Time.monotonic - start_time) > time_limit }
+                -> { (Time.monotonic - start_time) > time_limit }
               )
 
               headers = HTTP::Headers{
