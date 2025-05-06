@@ -3,7 +3,6 @@
 <h1>speedtest-ng</h1>
 <h3>
 A command-line tool for testing internet speed using Speedtest.net, written in Crystal.
-Inspired by the Python-based [speedtest-cli](https://github.com/sivel/speedtest-cli).
 </h3>
 
 [![Crystal CI](https://github.com/mamantoha/speedtest-ng/actions/workflows/crystal.yml/badge.svg)](https://github.com/mamantoha/speedtest-ng/actions/workflows/crystal.yml)
