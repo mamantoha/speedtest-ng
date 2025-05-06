@@ -40,6 +40,8 @@ Usage: speedtest-ng [options]
     --list                           Display a list of speedtest.net servers sorted by distance
     --server SERVER                  Specify a server ID to test against
     --secure                         Use HTTPS instead of HTTP when communicating with speedtest.net operated servers
+    --download-time SECONDS          Set download test time limit in seconds (default: 20)
+    --upload-time SECONDS            Set upload test time limit in seconds (default: 20)
     --version                        Show the version number and exit
     -h, --help                       Show this help message and exit
 ```
