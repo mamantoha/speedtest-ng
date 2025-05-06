@@ -113,6 +113,8 @@ module Speedtest
     secure : Bool,
     time_limit : Time::Span = 20.seconds,
   )
+    Speedtest.test_in_progress = true
+
     scheme = secure ? "https" : "http"
 
     download_sizes = [
@@ -163,11 +165,11 @@ module Speedtest
       threads.times do
         wg.spawn do
           while url = download_queue.receive?
-            break if (Time.monotonic - start_time) > time_limit
+            break if (Time.monotonic - start_time) > time_limit || !Speedtest.test_in_progress
             begin
               HTTP::Client.get(url) do |response|
                 loop do
-                  break if (Time.monotonic - start_time) > time_limit
+                  break if (Time.monotonic - start_time) > time_limit || !Speedtest.test_in_progress
 
                   bytes_read = response.body_io.read(buffer)
 
@@ -199,6 +201,8 @@ module Speedtest
     secure : Bool,
     time_limit : Time::Span = 20.seconds,
   )
+    Speedtest.test_in_progress = true
+
     scheme = secure ? "https" : "http"
 
     url = "#{scheme}://#{host}/upload"
@@ -256,13 +260,13 @@ module Speedtest
       threads.times do
         wg.spawn do
           while size = upload_queue.receive?
-            break if (Time.monotonic - start_time) > time_limit
+            break if (Time.monotonic - start_time) > time_limit || !Speedtest.test_in_progress
             begin
               upload_io = UploadIO.new(
                 upload_data[size],
                 buffer_size,
                 progress_tracker,
-                -> { (Time.monotonic - start_time) > time_limit }
+                -> { (Time.monotonic - start_time) > time_limit || !Speedtest.test_in_progress }
               )
 
               headers = HTTP::Headers{
