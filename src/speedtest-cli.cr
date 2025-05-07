@@ -255,12 +255,10 @@ module Speedtest
         wg.spawn do
           while size = upload_queue.receive?
             begin
-              upload_io = UploadIO.new(
-                upload_data[size],
-                buffer_size,
-                ->(bytes_read : Int32) { transferred_bytes.add(bytes_read) },
-                -> { (Time.monotonic - start_time) > time_limit || !Speedtest.test_in_progress }
-              )
+              upload_io = UploadIO.new(upload_data[size], buffer_size)
+
+              upload_io.on_progress ->(bytes_read : Int32) { transferred_bytes.add(bytes_read) }
+              upload_io.should_cancel -> { (Time.monotonic - start_time) > time_limit || !Speedtest.test_in_progress }
 
               headers = HTTP::Headers{
                 "Content-Type"   => "application/octet-stream",
