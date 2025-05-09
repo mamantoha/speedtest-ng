@@ -391,7 +391,13 @@ module Speedtest
 
     speed_mbps = speed_in_mbps(bytes, elapsed_time)
 
-    percentage = ((bytes / total_bytes) * 100).clamp(0, 100).to_i
+    percentage =
+      if bytes.zero? || total_bytes.zero?
+        0
+      else
+        ((bytes / total_bytes) * 100).clamp(0, 100).to_i
+      end
+
     bar_length = (percentage / 2).to_i
     progress_bar = "=" * bar_length + ">"
 
