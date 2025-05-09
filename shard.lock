@@ -18,5 +18,5 @@ shards:
 
   upload_io:
     git: https://github.com/mamantoha/upload_io.git
-    version: 0.5.2
+    version: 0.5.3
 
