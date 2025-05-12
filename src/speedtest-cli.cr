@@ -165,6 +165,8 @@ module Speedtest
       threads.times do
         wg.spawn do
           while url = download_queue.receive?
+            break if (Time.monotonic - start_time) > time_limit || !Speedtest.test_in_progress
+
             begin
               HTTP::Client.get(url) do |response|
                 loop do
@@ -254,6 +256,8 @@ module Speedtest
       threads.times do
         wg.spawn do
           while size = upload_queue.receive?
+            break if (Time.monotonic - start_time) > time_limit || !Speedtest.test_in_progress
+
             begin
               upload_io = UploadIO.new(upload_data[size], buffer_size) do |io|
                 io.on_progress ->(bytes_read : Int32) { transferred_bytes.add(bytes_read) }
