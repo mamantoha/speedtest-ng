@@ -467,7 +467,7 @@ module Speedtest
           upload_time_limit = seconds.to_i.seconds
         end
 
-        parser.on("--version", "Show the version number and exit") do
+        parser.on("-v", "--version", "Show the version number and exit") do
           puts "#{NAME} #{VERSION} (#{BUILD_DATE})"
           puts
           puts "Crystal #{Crystal::VERSION} [LLVM #{Crystal::LLVM_VERSION}]"
