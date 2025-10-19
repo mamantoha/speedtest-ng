@@ -1,5 +1,7 @@
 name: speedtest-ng
-version: 0.7.10
+version: 0.7.11
+
+crystal: 1.18.1
 
 authors:
   - Anton Maminov <anton.maminov@gmail.com>
@@ -15,7 +17,5 @@ dependencies:
 targets:
   speedtest-ng:
     main: src/main.cr
-
-crystal: 1.18.0
 
 license: MIT
