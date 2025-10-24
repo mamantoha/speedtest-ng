@@ -13,6 +13,8 @@ dependencies:
     github: geocrystal/haversine
   tablo:
     github: hutou/tablo
+  flag_emoji:
+    github: mamantoha/flag_emoji
 
 targets:
   speedtest-ng:

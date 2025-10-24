@@ -6,6 +6,7 @@ require "wait_group"
 require "upload_io"
 require "haversine"
 require "tablo"
+require "flag_emoji"
 
 module Speedtest
   extend self
@@ -303,7 +304,7 @@ module Speedtest
     data = server_distances.map do |entry|
       server = entry[:server]
       distance_km = entry[:distance].to_kilometers.round(2)
-      flag = country_flag(server.cc)
+      flag = FlagEmoji.from_country_code(server.cc)
 
       [
         server.id.to_s,
@@ -324,7 +325,7 @@ module Speedtest
   end
 
   def hosted_server_info(server : Server, config : Config, *, latency : Float64? = nil, secure : Bool = false) : String
-    flag = country_flag(server.cc)
+    flag = FlagEmoji.from_country_code(server.cc)
 
     client_lat = config.client[:lat]
     client_lon = config.client[:lon]
@@ -342,17 +343,6 @@ module Speedtest
     end
 
     result
-  end
-
-  def country_flag(code : String) : String
-    offset = 127397
-    country_code_re = /^[A-Z]{2}$/
-
-    if country_code_re.match(code)
-      code.codepoints.map(&.+ offset).join(&.chr)
-    else
-      ""
-    end
   end
 
   private def get_server_latency(server : Server, secure : Bool) : Float64?
@@ -493,7 +483,7 @@ module Speedtest
 
       config = Speedtest.fetch_speedtest_config
 
-      puts "🌍 Testing from #{Speedtest.country_flag(config.client[:country])} #{config.client[:isp]} (#{config.client[:ip]})..."
+      puts "🌍 Testing from #{FlagEmoji.from_country_code(config.client[:country])} #{config.client[:isp]} (#{config.client[:ip]})..."
 
       servers = Speedtest.fetch_servers
 

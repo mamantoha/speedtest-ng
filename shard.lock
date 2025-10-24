@@ -1,5 +1,9 @@
 version: 2.0
 shards:
+  flag_emoji:
+    git: https://github.com/mamantoha/flag_emoji.git
+    version: 0.1.0
+
   haversine:
     git: https://github.com/geocrystal/haversine.git
     version: 0.5.0
