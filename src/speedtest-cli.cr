@@ -364,7 +364,7 @@ module Speedtest
             latencies << elapsed_time
           end
         rescue IO::TimeoutError
-          return nil
+          return
         rescue
           next
         end
@@ -372,10 +372,10 @@ module Speedtest
 
       http_client.close
     rescue
-      return nil
+      return
     end
 
-    return nil if latencies.empty?
+    return if latencies.empty?
 
     latencies.sum / latencies.size
   end
