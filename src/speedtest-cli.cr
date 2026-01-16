@@ -146,7 +146,7 @@ module Speedtest
       download_queue.close
     end
 
-    start_time = Time.monotonic
+    start_time = Time.instant
     done = Channel(Nil).new
 
     spawn do
@@ -166,12 +166,12 @@ module Speedtest
       threads.times do
         wg.spawn do
           while url = download_queue.receive?
-            break if (Time.monotonic - start_time) > time_limit || !Speedtest.test_in_progress
+            break if (Time.instant - start_time) > time_limit || !Speedtest.test_in_progress
 
             begin
               HTTP::Client.get(url) do |response|
                 loop do
-                  break if (Time.monotonic - start_time) > time_limit || !Speedtest.test_in_progress
+                  break if (Time.instant - start_time) > time_limit || !Speedtest.test_in_progress
 
                   bytes_read = response.body_io.read(buffer)
 
@@ -191,7 +191,7 @@ module Speedtest
     update_progress_bar(start_time, transferred_bytes.get, transferred_bytes.get)
 
     puts "\n"
-    total_time = Time.monotonic - start_time
+    total_time = Time.instant - start_time
 
     puts "🔽 Download: #{speed_in_mbps(transferred_bytes.get, total_time)} (#{transferred_bytes.get.humanize_bytes} in #{total_time.seconds} seconds)"
   end
@@ -237,7 +237,7 @@ module Speedtest
       upload_queue.close
     end
 
-    start_time = Time.monotonic
+    start_time = Time.instant
     done = Channel(Nil).new
 
     spawn do
@@ -257,12 +257,12 @@ module Speedtest
       threads.times do
         wg.spawn do
           while size = upload_queue.receive?
-            break if (Time.monotonic - start_time) > time_limit || !Speedtest.test_in_progress
+            break if (Time.instant - start_time) > time_limit || !Speedtest.test_in_progress
 
             begin
               upload_io = UploadIO.new(upload_data[size], buffer_size) do |io|
                 io.on_progress ->(bytes_read : Int32) { transferred_bytes.add(bytes_read) }
-                io.should_cancel -> { (Time.monotonic - start_time) > time_limit || !Speedtest.test_in_progress }
+                io.should_cancel -> { (Time.instant - start_time) > time_limit || !Speedtest.test_in_progress }
               end
 
               headers = HTTP::Headers{
@@ -282,7 +282,7 @@ module Speedtest
     update_progress_bar(start_time, transferred_bytes.get, transferred_bytes.get)
 
     puts "\n"
-    total_time = Time.monotonic - start_time
+    total_time = Time.instant - start_time
 
     puts "🔼 Upload: #{speed_in_mbps(transferred_bytes.get, total_time)} (#{transferred_bytes.get.humanize_bytes} in #{total_time.seconds} seconds)"
   end
@@ -354,17 +354,17 @@ module Speedtest
       http_client.connect_timeout = 1.seconds
 
       3.times do
-        start_time = Time.monotonic
+        start_time = Time.instant
 
         begin
           response = http_client.get("/speedtest/latency.txt")
 
           if response.success?
-            elapsed_time = (Time.monotonic - start_time).total_milliseconds
+            elapsed_time = (Time.instant - start_time).total_milliseconds
             latencies << elapsed_time
           end
         rescue IO::TimeoutError
-          return nil
+          return
         rescue
           next
         end
@@ -372,16 +372,16 @@ module Speedtest
 
       http_client.close
     rescue
-      return nil
+      return
     end
 
-    return nil if latencies.empty?
+    return if latencies.empty?
 
     latencies.sum / latencies.size
   end
 
-  private def update_progress_bar(start_time : Time::Span, bytes : Int64, total_bytes : Int64)
-    elapsed_time = Time.monotonic - start_time
+  private def update_progress_bar(start_time : Time::Instant, bytes : Int64, total_bytes : Int64)
+    elapsed_time = Time.instant - start_time
 
     speed_mbps = speed_in_mbps(bytes, elapsed_time)
 
