@@ -166,12 +166,12 @@ module Speedtest
       threads.times do
         wg.spawn do
           while url = download_queue.receive?
-            break if (Time.instant - start_time) > time_limit || !Speedtest.test_in_progress
+            break if start_time.elapsed > time_limit || !Speedtest.test_in_progress
 
             begin
               HTTP::Client.get(url) do |response|
                 loop do
-                  break if (Time.instant - start_time) > time_limit || !Speedtest.test_in_progress
+                  break if start_time.elapsed > time_limit || !Speedtest.test_in_progress
 
                   bytes_read = response.body_io.read(buffer)
 
@@ -257,12 +257,12 @@ module Speedtest
       threads.times do
         wg.spawn do
           while size = upload_queue.receive?
-            break if (Time.instant - start_time) > time_limit || !Speedtest.test_in_progress
+            break if start_time.elapsed > time_limit || !Speedtest.test_in_progress
 
             begin
               upload_io = UploadIO.new(upload_data[size], buffer_size) do |io|
                 io.on_progress ->(bytes_read : Int32) { transferred_bytes.add(bytes_read) }
-                io.should_cancel -> { (Time.instant - start_time) > time_limit || !Speedtest.test_in_progress }
+                io.should_cancel -> { start_time.elapsed > time_limit || !Speedtest.test_in_progress }
               end
 
               headers = HTTP::Headers{
@@ -282,7 +282,7 @@ module Speedtest
     update_progress_bar(start_time, transferred_bytes.get, transferred_bytes.get)
 
     puts "\n"
-    total_time = Time.instant - start_time
+    total_time = start_time.elapsed
 
     puts "🔼 Upload: #{speed_in_mbps(transferred_bytes.get, total_time)} (#{transferred_bytes.get.humanize_bytes} in #{total_time.seconds} seconds)"
   end
@@ -360,8 +360,7 @@ module Speedtest
           response = http_client.get("/speedtest/latency.txt")
 
           if response.success?
-            elapsed_time = (Time.instant - start_time).total_milliseconds
-            latencies << elapsed_time
+            latencies << start_time.elapsed.total_milliseconds
           end
         rescue IO::TimeoutError
           return
@@ -381,9 +380,7 @@ module Speedtest
   end
 
   private def update_progress_bar(start_time : Time::Instant, bytes : Int64, total_bytes : Int64)
-    elapsed_time = Time.instant - start_time
-
-    speed_mbps = speed_in_mbps(bytes, elapsed_time)
+    speed_mbps = speed_in_mbps(bytes, start_time.elapsed)
 
     percentage =
       if bytes.zero? || total_bytes.zero?
