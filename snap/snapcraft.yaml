@@ -28,9 +28,29 @@ apps:
 
 parts:
   speedtest-ng:
-    plugin: crystal
+    plugin: nil
     source: ./
-    crystal-build-options:
-    - -Dpreview_mt
-    - -Dexecution_context
-    - --skip-postinstall
+    build-snaps:
+      - crystal/latest/stable
+    build-packages:
+      - git
+      - libevent-dev
+      - libgc-dev
+      - libpcre2-dev
+      - libssl-dev
+      - libxml2-dev
+      - libyaml-dev
+      - pkg-config
+      - zlib1g-dev
+    stage-packages:
+      - libevent-2.1-7
+      - libgc1
+      - libpcre2-8-0
+      - libssl3
+      - libxml2
+      - libyaml-0-2
+      - zlib1g
+    override-build: |
+      shards install --production
+      shards build --release -- -Dpreview_mt -Dexecution_context --skip-postinstall
+      install -Dm755 bin/speedtest-ng "$CRAFT_PART_INSTALL/bin/speedtest-ng"
