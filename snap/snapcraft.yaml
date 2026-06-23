@@ -51,6 +51,6 @@ parts:
       - libyaml-0-2
       - zlib1g
     override-build: |
-      shards install --production
+      shards install --production --skip-postinstall
       shards build --release -- -Dpreview_mt -Dexecution_context --skip-postinstall
       install -Dm755 bin/speedtest-ng "$CRAFT_PART_INSTALL/bin/speedtest-ng"
