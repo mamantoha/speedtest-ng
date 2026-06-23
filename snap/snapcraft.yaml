@@ -1,6 +1,7 @@
 name: speedtest-ng
 base: core24
 version: '0.8.8'
+title: Speedtest NG
 summary: A command-line tool for testing internet speed using Speedtest.net
 description: |
   A command-line tool for testing internet speed using Speedtest.net, written in Crystal.
@@ -42,7 +43,6 @@ parts:
       - libpcre2-dev
       - libssl-dev
       - libxml2-dev
-      - libyaml-dev
       - pkg-config
       - zlib1g-dev
     stage-packages:
@@ -51,7 +51,6 @@ parts:
       - libpcre2-8-0
       - libssl3
       - libxml2
-      - libyaml-0-2
       - zlib1g
     override-build: |
       shards install --production --skip-postinstall
