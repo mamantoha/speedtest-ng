@@ -1,5 +1,5 @@
 name: speedtest-ng
-base: core26
+base: core24
 version: '0.8.6'
 summary: A command-line tool for testing internet speed using Speedtest.net
 description: |
