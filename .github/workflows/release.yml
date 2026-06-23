@@ -50,3 +50,21 @@ jobs:
           asset_name: speedtest-ng_${{ github.ref_name }}_${{ matrix.asset_suffix }}
           tag: ${{ github.ref }}
           overwrite: true
+
+  snap:
+    name: Publish snap
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build snap
+        uses: snapcore/action-build@v1
+        id: snapcraft
+      - name: Add snap to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ${{ steps.snapcraft.outputs.snap }}
+          asset_name: speedtest-ng_${{ github.ref_name }}_linux-amd64.snap
+          tag: ${{ github.ref }}
+          overwrite: true
