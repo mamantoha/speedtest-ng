@@ -134,7 +134,8 @@ module Speedtest
     transferred_bytes = Atomic(Int64).new(0)
 
     buffer_size = 4096
-    buffer = Bytes.new(buffer_size)
+    max_connect_wait = 2.seconds
+    max_read_wait = 100.milliseconds
 
     download_queue = Channel(String).new
 
@@ -165,19 +166,30 @@ module Speedtest
     WaitGroup.wait do |wg|
       threads.times do
         wg.spawn do
+          buffer = Bytes.new(buffer_size)
+
           while url = download_queue.receive?
             break if start_time.elapsed > time_limit || !Speedtest.test_in_progress
 
             begin
-              HTTP::Client.get(url) do |response|
-                loop do
-                  break if start_time.elapsed > time_limit || !Speedtest.test_in_progress
+              uri = URI.parse(url)
+              remaining_time = time_limit - start_time.elapsed
+              break if remaining_time <= Time::Span.zero
 
-                  bytes_read = response.body_io.read(buffer)
+              HTTP::Client.new(uri) do |client|
+                client.connect_timeout = remaining_time < max_connect_wait ? remaining_time : max_connect_wait
+                client.read_timeout = remaining_time < max_read_wait ? remaining_time : max_read_wait
 
-                  break if bytes_read.zero?
+                client.get(uri.request_target) do |response|
+                  loop do
+                    break if start_time.elapsed > time_limit || !Speedtest.test_in_progress
 
-                  transferred_bytes.add(bytes_read)
+                    bytes_read = response.body_io.read(buffer)
+
+                    break if bytes_read.zero?
+
+                    transferred_bytes.add(bytes_read)
+                  end
                 end
               end
             rescue
